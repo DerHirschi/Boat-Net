@@ -11,7 +11,7 @@ class LTEStick():
         self.rsrp = -999
         try:
             self.client = Client(AuthorizedConnection(stick_addi))
-        except ResponseErrorLoginCsfrException:
+        except Exception:
             print("Connection2Modem Error ...")
             raise
 
