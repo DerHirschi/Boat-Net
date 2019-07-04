@@ -754,8 +754,8 @@ switch (LOOP_counter) {
 			int stri = Serial.read();
 			if(packet_flag == "") {				
 				if(DEBUG) {
-					Serial.println(" FLAG : " + (String)(char)stri);
-					Serial.println(" FLAG Int: " + (String)stri);
+					//Serial.println(" FLAG : " + (String)(char)stri);
+					//Serial.println(" FLAG Int: " + (String)stri);
 				}				
 				packet_flag = (String)stri;
 			}else{
@@ -807,9 +807,9 @@ switch (LOOP_counter) {
 						inString 	= "";
 						packet_flag = "";									
 						if(DEBUG){
-							Serial.println(servoList[0][0]);					
-							Serial.println(SERIAL_inBuffer);
-							Serial.println(SERIAL_inBuffer.toInt());
+							//Serial.println(servoList[0][0]);					
+							//Serial.println(SERIAL_inBuffer);
+							//Serial.println(SERIAL_inBuffer.toInt());
 							SERIAL_inBuffer = "";						
 						}
 					}

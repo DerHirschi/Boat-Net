@@ -33,6 +33,9 @@ class ArduCom():
             print("Handshake failed !")
             raise Exception("Handshake failed")
 
+    def close(self):
+        self.ser.close()
+
     def get_handshake(self):
         ser_buffer = b''
         run = True
@@ -42,14 +45,19 @@ class ArduCom():
             if (temp_buffer == b'\n'):
                 # parsing
                 ser_buffer = ser_buffer.decode('UTF-8')
-                if('INIT' in ser_buffer):
+                if('INITMIN' in ser_buffer):
                     # room for init vars
                     return True
-                elif(count > 2):
+                elif(count > 3):
+                    print(ser_buffer)
                     return False
                 else:
+                    print(ser_buffer)
                     ser_buffer = b''
                     count += 1
+            elif(len(ser_buffer) > 150):    # more than 150 bytes
+                print(ser_buffer)
+                return False
             else:
                 ser_buffer += temp_buffer
 
@@ -69,13 +77,16 @@ class ArduCom():
                 ser_buffer += temp_buffer
             if(not self.fast_recv):
                 time.sleep(0.001)
+        self.close()
 
     def parse_in_packet(self, buffer_in):
+        print("PArser In:" + str(buffer_in))
         # ACK
         if('ACK' in buffer_in):
             while self.ack != -1:
                 pass
             self.ack = chr(int(buffer_in[3:]))
+            print('ACK-Recv :' + str(self.ack))
         # Heading
         elif('HDG' in buffer_in):
             self.heading = int(buffer_in[3:])
@@ -83,6 +94,8 @@ class ArduCom():
             print(buffer_in)
 
     def send_w_ack(self, flag, out_string):
+        while self.ack != -1:
+            pass
         self.ser.write(bytes((flag + out_string + '\n'), 'utf-8'))
         while self.ack != flag:
             pass
