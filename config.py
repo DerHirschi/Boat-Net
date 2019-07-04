@@ -1,0 +1,1 @@
+lte_stick_addi = 'http://192.168.8.1/'

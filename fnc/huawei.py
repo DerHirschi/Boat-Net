@@ -4,13 +4,13 @@ from huawei_lte_api.exceptions import ResponseErrorLoginCsfrException
 
 
 class LTEStick():
-    def __init__(self):
+    def __init__(self, stick_addi):
         self.client = None
         self.rsrq = -999
         self.sinr = -999
         self.rsrp = -999
         try:
-            self.client = Client(AuthorizedConnection('http://192.168.8.1/'))
+            self.client = Client(AuthorizedConnection(stick_addi))
         except ResponseErrorLoginCsfrException:
             print("Connection2Modem Error ...")
             raise
