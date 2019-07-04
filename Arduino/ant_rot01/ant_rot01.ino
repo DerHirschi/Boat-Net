@@ -741,7 +741,7 @@ switch (LOOP_counter) {
 	case 1: // ----- Send Heading if change		
 		if(round(Heading) != heading_buffer) {
 			heading_buffer 	= round(Heading); 		
-			//Serial.println("H" + (String)heading_buffer);
+			//Serial.println("HDG" + (String)heading_buffer);
 		//	Serial.println(round_heading + "," + servo_read);
 		}
 		//Serial.println("   " + (String)Heading);
@@ -803,7 +803,7 @@ switch (LOOP_counter) {
 						servoList[serv][0] = new_servoval;
 						H_buffer = Heading;						  
 						// TODO Send ACK if Servo value is set
-						Serial.println("ACK " + packet_flag);
+						Serial.println("ACK" + packet_flag);
 						inString 	= "";
 						packet_flag = "";									
 						if(DEBUG){
@@ -856,9 +856,8 @@ switch (LOOP_counter) {
 
 	////////////////////// Init /////////////////////////
 	case 4:
-		Serial.println("INITMIN" + (String)Heading + "," + (String)serv_min_angle);
-		Serial.println("INITMAX"+ (String)Heading + "," + (String)serv_max_angle);
-	
+		Serial.println("INITMIN" + (String)serv_min_angle + "INITMAX"+ (String)serv_max_angle + "HDG" + (String)Heading);
+
 		//if(INIT_min and INIT_max) {	LOOP_counter = 0; }else{	LOOP_counter = 2;}
 		LOOP_counter = 0;
 		break;
