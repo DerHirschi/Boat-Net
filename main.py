@@ -2,6 +2,7 @@ from config import lte_stick_addi_1 as modem1
 from fnc.huawei_com import LTEStick
 from fnc.ardu_com import ArduCom
 from fnc.scan_fnc import ScanSignals
+from etc.log import log
 import threading
 
 
@@ -56,9 +57,19 @@ main.ardu.toggle_servos(True)
 try:
     while True:
 
-        main.scan.scan_cycle(resolution=16, lte_duration=7)
+        main.scan.scan_cycle(resolution=8, lte_duration=7)
         #main.scan.plot_scan()
         threading.Thread(target=main.scan.plot_scan).start()
+        # tmp = sorted(main.scan.scanres.keys())
+        # for key in tmp:
+        #     log("{} - {}".format(main.scan.scanres[key], key), 9)
+        # log("\n")
 except KeyboardInterrupt:
     main.ardu.run_trigger = False
     main.scan.run_trigger = False
+
+log(main.scan.scanres, 9)
+tmp = sorted(main.scan.scanres.keys())
+for key in tmp:
+    log("{} - {}".format(main.scan.scanres[key], key), 9)
+

@@ -3,6 +3,9 @@ import threading
 import numpy as np
 import matplotlib.cm as cm
 from matplotlib import pyplot as plt
+from etc.var import map_val
+from etc.var import overflow_value
+from etc.log import log
 
 
 class ScanSignals():
@@ -10,9 +13,10 @@ class ScanSignals():
         self.lte_stick = lte_stick
         self.arduino = ardu
         self.scanres = {}
-        self.run_trigger = False       # Loop stopper
+        self.null_hdg = self.arduino.heading    # Flag has to set if delete self.scanres
+        self.run_trigger = False                # Loop stopper
         # Plot Init #
-        self.N = round((1024 / 225) * 360)
+        self.N = round((1024 / (self.arduino.servo_max_angle - self.arduino.servo_min_angle)) * 360)
         self.theta = np.arange(0.0, 2 * np.pi, 2 * np.pi / self.N)
         self.radii = []
         for i in range(self.N):
@@ -20,59 +24,78 @@ class ScanSignals():
 
     def scan_complete(self, resolution=32, lte_duration=7, loop=None):
         self.run_trigger = True
-
-        # TODO Werte zu 270 grad mappen + Heading vom ardu
-        for i in range(int(1024/resolution)):
+        servo_angle = self.arduino.servo_max_angle - self.arduino.servo_min_angle
+        i = 0
+        temp_hdg = self.arduino.heading
+        while i <= int(1024/resolution):
+            temp_angle = temp_hdg - self.arduino.heading
+            temp_hdg = self.arduino.heading
+            temp_angle = map_val(temp_angle, -(servo_angle / 2), (servo_angle / 2), -512, 512)
+            temp_res_angle = self.null_hdg - self.arduino.heading
+            i_correct = int(round(temp_angle / resolution))
+            # TODO Grad bzw Keys falsch rum ? +/- .. Werte auf plot nicht vermittelt ( fangen immer bei null an )
+            if loop:
+                i = i + i_correct
+            else:
+                i = i - i_correct
+            if (i * resolution) > 1023:
+                break
+            i = max(i, 0)
             val = int(i * resolution)
-            if(loop):
-                val = round(1024 - i * resolution)
+            if loop:
+                val = round(1024 - (i + 1) * resolution)
+
+            temp_res_angle = map_val(temp_res_angle, -180, 180, int(-(self.N/2)), int(self.N/2))
+            res_hdg = val - int(temp_res_angle)                     # TODO Check +/-
+            res_hdg = overflow_value(res_hdg, self.N)
 
             self.arduino.set_servo(servo=1, val=val)
+            time.sleep(0.2)
             temp = [0, 0, 0]
             for n in range(lte_duration):     # Get average of scan values
                 while True:                 # Sometimes got None value back
                     sigs = self.lte_stick.get_string()
-                    if(all(sigs)):
+                    if all(sigs):
                         temp = [temp[0] + sigs[0], temp[1] + sigs[1], temp[2] + sigs[2], sigs[3]]
                         # print("{} - {} {} {}".format(val, sigs[0], sigs[1], sigs[2]))
                         break
-                if(not self.run_trigger):
+                if not self.run_trigger:
                     print("EM Break")
                     break
-            if(not self.run_trigger):
+            if not self.run_trigger:
                 print("EM Break")
                 break
             for ind in range(3):
-                if(val in self.scanres):
+                if val in self.scanres:
                     temp[ind] = (self.scanres[val][(ind + 1)] + (temp[ind] / lte_duration)) / 2
                 else:
                     temp[ind] = (temp[ind] / lte_duration)
             #                    mode,    rsrq,    rsrp,    sirn
-            self.scanres[val] = [temp[3], temp[0], temp[1], temp[2]]
+            i += 1
+            # print("self.scanres[res_hdg] " + str([temp[3], temp[0], temp[1], temp[2]]) + "key " + str(res_hdg))
 
-        #self.run_trigger = False
-        #print("{} \n".format(scanres[val]))
+            self.scanres[res_hdg] = [temp[3], temp[0], temp[1], temp[2]]
 
     def scan_cycle(self, duration=2, timer=-1, resolution=32, lte_duration=7):
         print("Run Scan Thread")
         lo = True
-        if(timer != -1):
+        if timer != -1:
             self.run_trigger = True
             ti = time.time()
             while self.run_trigger:
                 print("Timed Thread")
                 self.scan_complete(resolution=resolution, loop=lo, lte_duration=lte_duration)
-                if(lo):
+                if lo:
                     lo = False
                 else:
                     lo = True
-                if((time.time() - ti) > timer):
+                if (time.time() - ti) > timer:
                     break
         else:
             for n in range(duration):
                 print("Scan Nr: " + str(n))
                 self.scan_complete(resolution=resolution, loop=lo)
-                if(lo):
+                if lo:
                     lo = False
                 else:
                     lo = True
@@ -84,11 +107,11 @@ class ScanSignals():
     def get_peak(self):
         res, key = None, None
         for i in self.scanres.keys():
-            if(res):
+            if res:
                 temp = self.scanres[i]
-                if(temp[0] > res[0]):
+                if temp[0] > res[0]:
                     res, key = temp, i
-                if(temp[0] == res[0] and temp[1] > res[1]):     # Check 3G or 4G
+                if temp[0] == res[0] and temp[1] > res[1]:     # Check 3G or 4G
                     res, key = temp, i
             else:
                 res, key = self.scanres[i], i
@@ -104,9 +127,9 @@ class ScanSignals():
         tmp = 0
         n = 0
         for i in range(self.N):
-            if (len(scanres) == n):
+            if len(scanres) == n:
                 tmp = 0
-            elif (i in scanres):
+            elif i in scanres:
                 tmp = 20 + scanres[i][1]
                 n += 1
 

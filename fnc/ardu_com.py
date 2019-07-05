@@ -23,6 +23,8 @@ class ArduCom():
         # Out Vars
         self.ack = -1               # Ack Pkt Flag ( -1 trigger f frei f. n. pkt )
         self.heading = 0            # Heading get back from Ardu ( has to requested on Ardu)
+        self.servo_min_angle = 0    # Angle get from Ardu Handshake. need to calculate scan angle
+        self.servo_max_angle = 0    # Angle get from Ardu Handshake. need to calculate scan angle
         # Handshake
         if(self.get_handshake()):
             print("Handshake successful..")
@@ -46,6 +48,9 @@ class ArduCom():
                 ser_buffer = ser_buffer.decode('UTF-8')
                 if('INITMIN' in ser_buffer):
                     # room for parsing init vars
+                    # print(ser_buffer)
+                    self.servo_min_angle = int(ser_buffer[(ser_buffer.find("INITMIN") + len("INITMIN")):(ser_buffer.find("INITMAX"))])
+                    self.servo_max_angle = int(ser_buffer[(ser_buffer.find("INITMAX") + len("INITMAX")):(ser_buffer.find("HDG"))])
                     self.ser.write(bytes((flag + str(int(True)) + '\n'), 'utf-8'))
                     ser_buffer = b''
                 elif('ACK' in ser_buffer):                  # Init ACK
@@ -93,7 +98,7 @@ class ArduCom():
             while self.ack != -1:
                 pass
             self.ack = chr(int(buffer_in[3:]))
-            print('ACK-Recv :' + str(self.ack))
+            # print('ACK-Recv :' + str(self.ack))
         # Heading
         elif('HDG' in buffer_in):
             self.heading = float(buffer_in[3:])

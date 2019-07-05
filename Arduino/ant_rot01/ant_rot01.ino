@@ -59,10 +59,8 @@
 #include <Servo.h>
 
 Servo servo1;
-#define SERV_MIN 600
-#define SERV_MAX 2350
-int serv_max_angle = 225;
-int serv_min_angle;
+#define SERV_MIN 544
+#define SERV_MAX 2400
 // Serial Buffer values
 int servoList[2][2] = {{0, 950}, {0, 950}}; // {{val, new_servospeed},{servo2,..}}
 int new_servospeed 	= 0;
@@ -80,6 +78,8 @@ long serv_slowmv_timer_buffer = micros();
 // ----- DEBUG
 #define DEBUG true
 #define ADJUST false
+int serv_max_angle = 235;
+int serv_min_angle;
 // ----- globals
 
 int LOOP_counter = 4;	// Start with INIT
@@ -680,7 +680,13 @@ void read_mpu_6050_data()
 
 
 // ----- Allow for under/overflow
+// !!!!!!!! TODO TESTEN !!!!!!!!
 float heading_overflow(float h_in) {
+  float res = float(int(h_in * 100) % 36000) / 100;
+	return res;
+}
+// !!!!!!!! TODO TESTEN !!!!!!!!
+/*	
 	if(h_in >= 360) { 		
 		return (h_in - 360.);
 	}
@@ -688,7 +694,8 @@ float heading_overflow(float h_in) {
 		return (h_in + 360.);
 	}		
   return h_in;
-}
+*/
+
 // -------------------------------
 //  Adjust Servos
 // -------------------------------
