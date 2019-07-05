@@ -70,7 +70,7 @@ int new_servoval 	= 0;
 String packet_flag = "";
 bool run_servo_adj = false;
 // temp values
-int H_buffer = 0;
+float H_buffer = 0;
 // Servo slow moving
 int serv_slowmv_val_buffer;
 long serv_slowmv_timer_buffer = micros();
@@ -125,7 +125,7 @@ float   Accel_pitch,  Accel_roll;
   Uncomment the declination code within the main loop() if you want True North.
 */
 float   Declination = +3.36667;                                             //  Degrees ... replace this declination with yours
-int     Heading;
+float     Heading;
 
 int     Mag_x,                Mag_y,                Mag_z;                  // Raw magnetometer readings
 float   Mag_x_dampened,       Mag_y_dampened,       Mag_z_dampened;
@@ -221,7 +221,7 @@ void loop()
 		(Compensates for any 16 MHz Xtal oscillator error)
 	*/
 	if((micros() - Loop_start_time) >= 8400) {
-		main_loop();
+		main_loop();		
 		Loop_start_time = micros();
 	}
 }
@@ -358,14 +358,10 @@ void main_loop() {
 
 	  // ----- Calculate the heading
 	  Heading = atan2(Mag_x_dampened, Mag_y_dampened) * RAD_TO_DEG;  // Magnetic North
-
 	  // ----- Correct for True North
 	  Heading += Declination;                                   // Geographic North
-
 	  // ----- Allow for under/overflow
-	  //Serial.println("H1" + (String)Heading);
 	  Heading = heading_overflow(Heading);
-	  //Serial.println("H2" + (String)Heading);
 }
 
 // ----------------------------
@@ -683,18 +679,14 @@ void read_mpu_6050_data()
 
 
 // ----- Allow for under/overflow
-int heading_overflow(int h_in) {	
-	if (h_in >= 360) { 
-		h_in = h_in - 360;    
-    //Serial.println("DEB1 - " + (String)h_in);
-    String st = (String)h_in; // LOL .. WHY ?? whitout this, it dosn t work..
-		return h_in;
+float heading_overflow(float h_in) {
+	if(h_in >= 360) { 		
+		return (h_in - 360.);
 	}
-	if (h_in < 0) {		
-		h_in = h_in + 360;
-		//Serial.println("DEB1 + " + (String)h_in);
-		return h_in;
+	if (h_in < 0) {			
+		return (h_in + 360.);
 	}		
+  return h_in;
 }
 // -------------------------------
 //  Adjust Servos
@@ -709,7 +701,9 @@ void adjust_servos() {
 	}	
 	
 	//int map_val = map((Heading - Heading_buffer), serv_min_angle, serv_max_angle, SERV_MIN, SERV_MAX);
-	int temp_head = heading_overflow(Heading - H_buffer + serv_min_angle);
+	//Serial.println("Heading: " + (String)Heading);
+	//Serial.println("H_buffer: " + (String)H_buffer);
+	float temp_head = heading_overflow(Heading - H_buffer + serv_min_angle);
 	//Serial.println("temp_head: " + (String)temp_head);
 	int map_val = map(temp_head, serv_min_angle, serv_max_angle, SERV_MIN, SERV_MAX);
 	//Serial.println("map_val: " + (String)map_val);
@@ -741,7 +735,7 @@ switch (LOOP_counter) {
 	case 1: // ----- Send Heading if change		
 		if(round(Heading) != heading_buffer) {
 			heading_buffer 	= round(Heading); 		
-			//Serial.println("HDG" + (String)heading_buffer);
+			Serial.println("HDG" + (String)Heading);
 		//	Serial.println(round_heading + "," + servo_read);
 		}
 		//Serial.println("   " + (String)Heading);

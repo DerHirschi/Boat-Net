@@ -80,7 +80,7 @@ class ArduCom():
         self.close()
 
     def parse_in_packet(self, buffer_in):
-        print("PArser In:" + str(buffer_in))
+        print("Parser In:" + str(buffer_in))
         # ACK
         if('ACK' in buffer_in):
             while self.ack != -1:
@@ -89,7 +89,8 @@ class ArduCom():
             print('ACK-Recv :' + str(self.ack))
         # Heading
         elif('HDG' in buffer_in):
-            self.heading = int(buffer_in[3:])
+            self.heading = float(buffer_in[3:])
+            #print(self.heading)
         else:
             print(buffer_in)
 
