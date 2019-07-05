@@ -68,7 +68,7 @@ int servoList[2][2] = {{0, 950}, {0, 950}}; // {{val, new_servospeed},{servo2,..
 int new_servospeed 	= 0;
 int new_servoval 	= 0;
 String packet_flag = "";
-bool run_servo_adj = true;
+bool run_servo_adj = false;
 // temp values
 int H_buffer = 0;
 // Servo slow moving
