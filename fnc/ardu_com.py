@@ -20,7 +20,6 @@ class ArduCom():
 
         # In Vars
         self.run_trigger = True     # Thread trigger .. Stop all Threads
-        self.fast_recv = False      # Fast receiver loop
         # Out Vars
         self.ack = -1               # Ack Pkt Flag ( -1 trigger f frei f. n. pkt )
         self.heading = 0            # Heading get back from Ardu ( has to requested on Ardu)
@@ -37,17 +36,26 @@ class ArduCom():
         self.ser.close()
 
     def get_handshake(self):
+        flag = 'I'          # 'I' = 73
         ser_buffer = b''
-        run = True
         count = 0
-        while run:
+        while True:
             temp_buffer = self.ser.read(1)
             if (temp_buffer == b'\n'):
                 # parsing
                 ser_buffer = ser_buffer.decode('UTF-8')
                 if('INITMIN' in ser_buffer):
-                    # room for init vars
-                    return True
+                    # room for parsing init vars
+                    self.ser.write(bytes((flag + str(int(True)) + '\n'), 'utf-8'))
+                    ser_buffer = b''
+                elif('ACK' in ser_buffer):                  # Init ACK
+                    while self.ack != -1:
+                        pass
+                    if(chr(int(ser_buffer[3:])) == flag):   # INIT completed
+                        print('ACK-INIT-Recv :' + str(chr(int(ser_buffer[3:]))))
+                        return True
+                    ser_buffer = b''
+
                 elif(count > 3):
                     print(ser_buffer)
                     return False
@@ -75,12 +83,11 @@ class ArduCom():
                 ser_buffer = b''
             else:
                 ser_buffer += temp_buffer
-            if(not self.fast_recv):
-                time.sleep(0.001)
+
         self.close()
 
     def parse_in_packet(self, buffer_in):
-        print("Parser In:" + str(buffer_in))
+        # print("Parser In:" + str(buffer_in))
         # ACK
         if('ACK' in buffer_in):
             while self.ack != -1:
@@ -90,7 +97,7 @@ class ArduCom():
         # Heading
         elif('HDG' in buffer_in):
             self.heading = float(buffer_in[3:])
-            #print(self.heading)
+            # print(self.heading)
         else:
             print(buffer_in)
 

@@ -69,6 +69,7 @@ int new_servospeed 	= 0;
 int new_servoval 	= 0;
 String packet_flag = "";
 bool run_servo_adj = false;
+bool init_ok = false;
 // temp values
 float H_buffer = 0;
 // Servo slow moving
@@ -81,7 +82,7 @@ long serv_slowmv_timer_buffer = micros();
 #define ADJUST false
 // ----- globals
 
-int LOOP_counter = 3;
+int LOOP_counter = 4;	// Start with INIT
 int heading_buffer, LCD_pitch_buffer, LCD_roll_buffer;
 //Serial Read Buffer
 String inString = "";    // string to hold input
@@ -713,7 +714,14 @@ void adjust_servos() {
 	servo1.writeMicroseconds(map_val);	
 }
 
-
+// --------------------------
+//  Send ACK end of received msg
+// --------------------------
+void send_ack() {
+	Serial.println("ACK " + packet_flag);
+	inString 	= "";
+	packet_flag = "";
+}
 // --------------------------
 //  Main Loop - Get Serial - Adj Servo ...
 // --------------------------
@@ -724,8 +732,7 @@ void loop_contol() {
 	digit is updated each time around the main loop.
  */
 
-
-LOOP_counter++;
+if(init_ok) LOOP_counter++;
 // Adjust Servos each iritation
 if(run_servo_adj) adjust_servos();
 
@@ -759,6 +766,15 @@ switch (LOOP_counter) {
 				}
 			}
 			switch(packet_flag.toInt()) {
+				case 73:	// "I"	get Init ok
+					if(stri == '\n') {
+						if(inString.toInt() == 1) {
+							init_ok = true;	
+							if(DEBUG) Serial.println("Handshake complete ..");
+						}
+						send_ack();
+					}
+				break;
 				case 65: 	// "A"	Servo Adjust on/off
 					if(stri == '\n') {
 						if(inString.toInt() == 1) {
@@ -766,9 +782,7 @@ switch (LOOP_counter) {
 						}else{
 							run_servo_adj = false;
 						}
-						Serial.println("ACK " + packet_flag);
-						inString 	= "";
-						packet_flag = "";
+						send_ack();
 						if(DEBUG) {
 							Serial.println("Servo Adjust: " + (String)run_servo_adj);
 						}
@@ -797,9 +811,7 @@ switch (LOOP_counter) {
 						servoList[serv][0] = new_servoval;
 						H_buffer = Heading;						  
 						// TODO Send ACK if Servo value is set
-						Serial.println("ACK" + packet_flag);
-						inString 	= "";
-						packet_flag = "";									
+						send_ack();									
 						if(DEBUG){
 							//Serial.println(servoList[0][0]);					
 							//Serial.println(SERIAL_inBuffer);
@@ -853,7 +865,7 @@ switch (LOOP_counter) {
 		Serial.println("INITMIN" + (String)serv_min_angle + "INITMAX"+ (String)serv_max_angle + "HDG" + (String)Heading);
 
 		//if(INIT_min and INIT_max) {	LOOP_counter = 0; }else{	LOOP_counter = 2;}
-		LOOP_counter = 0;
+		LOOP_counter = 2;
 		break;
 	}
 }
