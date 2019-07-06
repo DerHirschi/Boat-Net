@@ -4,7 +4,7 @@ import time
 from config import serial_ports, serial_baud
 
 
-class ArduCom():
+class ArduCom:
     def __init__(self):
         self.ser = None
         for p in serial_ports:
@@ -13,20 +13,23 @@ class ArduCom():
                 print("Arduino found on: " + p)
             except serial.SerialException:
                 self.ser = None
-            if(self.ser):
+            if self.ser:
                 break
-        if(not self.ser):
+        if not self.ser:
             raise Exception
 
         # In Vars
         self.run_trigger = True     # Thread trigger .. Stop all Threads
         # Out Vars
         self.ack = -1               # Ack Pkt Flag ( -1 trigger f frei f. n. pkt )
-        self.heading = 0            # Heading get back from Ardu ( has to requested on Ardu)
+        self.heading = 0            # Heading get back from Ardu ( get after success full handshake)
         self.servo_min_angle = 0    # Angle get from Ardu Handshake. need to calculate scan angle
         self.servo_max_angle = 0    # Angle get from Ardu Handshake. need to calculate scan angle
+        # Flags
+        self.servo_on = False       # Servo toggle ( on/off Servo Gimbal on Ardu)
+        self.servo_val = 512        # Temp Servo value
         # Handshake
-        if(self.get_handshake()):
+        if self.get_handshake():
             print("Handshake successful..")
             # Receiver Thread
             self.receiver = threading.Thread(target=self.read_serial).start()
@@ -41,34 +44,34 @@ class ArduCom():
         flag = 'I'          # 'I' = 73
         ser_buffer = b''
         count = 0
-        while True:
+        while self.run_trigger:
             temp_buffer = self.ser.read(1)
-            if (temp_buffer == b'\n'):
+            if temp_buffer == b'\n':
                 # parsing
                 ser_buffer = ser_buffer.decode('UTF-8')
-                if('INITMIN' in ser_buffer):
+                if 'INITMIN' in ser_buffer:
                     # room for parsing init vars
                     # print(ser_buffer)
                     self.servo_min_angle = int(ser_buffer[(ser_buffer.find("INITMIN") + len("INITMIN")):(ser_buffer.find("INITMAX"))])
                     self.servo_max_angle = int(ser_buffer[(ser_buffer.find("INITMAX") + len("INITMAX")):(ser_buffer.find("HDG"))])
                     self.ser.write(bytes((flag + str(int(True)) + '\n'), 'utf-8'))
                     ser_buffer = b''
-                elif('ACK' in ser_buffer):                  # Init ACK
+                elif 'ACK' in ser_buffer:                  # Init ACK
                     while self.ack != -1:
                         pass
-                    if(chr(int(ser_buffer[3:])) == flag):   # INIT completed
+                    if chr(int(ser_buffer[3:])) == flag:   # INIT completed
                         print('ACK-INIT-Recv :' + str(chr(int(ser_buffer[3:]))))
                         return True
                     ser_buffer = b''
 
-                elif(count > 3):
+                elif count > 4:
                     print(ser_buffer)
                     return False
                 else:
                     print(ser_buffer)
                     ser_buffer = b''
                     count += 1
-            elif(len(ser_buffer) > 150):    # more than 150 bytes
+            elif len(ser_buffer) > 150:    # more than 150 bytes
                 print(ser_buffer)
                 return False
             else:
@@ -80,7 +83,7 @@ class ArduCom():
         ser_buffer = b''
         while self.run_trigger:
             temp_buffer = self.ser.read(1)
-            if(temp_buffer == b'\n'):
+            if temp_buffer == b'\n':
                 # parsing
                 ser_buffer = ser_buffer.decode('UTF-8')
                 threading.Thread(target=self.parse_in_packet, args=(ser_buffer, )).start()
@@ -92,38 +95,54 @@ class ArduCom():
         self.close()
 
     def parse_in_packet(self, buffer_in):
+        # TODO Detect Ardu restart and get new Handshake (stop and restart receiver thread)
         # print("Parser In:" + str(buffer_in))
         # ACK
-        if('ACK' in buffer_in):
+        if 'ACK' in buffer_in:
             while self.ack != -1:
                 pass
             self.ack = chr(int(buffer_in[3:]))
             # print('ACK-Recv :' + str(self.ack))
         # Heading
-        elif('HDG' in buffer_in):
+        elif 'HDG' in buffer_in:
             self.heading = float(buffer_in[3:])
-            # print(self.heading)
+        # Restart
+        elif 'BSTRT' in buffer_in:
+            print("Get Arduino Restart Trigger !!!")
+            self.run_trigger = False
         else:
             print(buffer_in)
 
     def send_w_ack(self, flag, out_string):
         while self.ack != -1:
-            pass
-        self.ser.write(bytes((flag + out_string + '\n'), 'utf-8'))
-        while self.ack != flag:
-            pass
+            if not self.run_trigger:
+                break
+        try:
+            self.ser.write(bytes((flag + out_string + '\n'), 'utf-8'))
+        except serial.SerialException:
+            print("Error write to Arduion ...")
+            self.run_trigger = False
+
+        while self.ack != flag:     # TODO Count and break
+            if not self.run_trigger:
+                break
         self.ack = -1
 
     def set_servo(self, servo=1, val=512, speed=1, wait_servo_confirm=False):
         flag = 'S'      # 'S' = 83
-        out = "{},{}:{}".format(val, speed, servo)
-        self.send_w_ack(flag, out)
+        if self.servo_val != val:
+            out = "{},{}:{}".format(val, speed, servo)
+            self.servo_val = val
+            self.send_w_ack(flag, out)
+            # TODO entweder via ACK o extra Flag parsing
+            if wait_servo_confirm:
+                pass
 
-        # TODO entweder via ACK o extra Flag parsing
-        if(wait_servo_confirm):
-            pass
-
-    def toggle_servos(self, switch):
+    def toggle_servos(self, switch=None):  # Servo toggle ( on/off Servo Gimbal on Ardu)
         flag = 'A'      # 'A' = 65
-        self.send_w_ack(flag, str(int(switch)))
+        if switch is None:
+            self.servo_on = bool((int(self.servo_on) + 1) % 2)
+        else:
+            self.servo_on = switch
+        self.send_w_ack(flag, str(int(self.servo_on)))
 

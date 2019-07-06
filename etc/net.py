@@ -32,7 +32,7 @@ def keepalive_winhost(ip):
         return False
 
 
-#TODO Kein Pipe mehr via cmd ... Stringsuche
+# TODO Kein Pipe mehr via cmd ... Stringsuche
 def getdefault_iface(opt='ip'):
     return subprocess.getoutput("ip route | grep default " + (
                                     {

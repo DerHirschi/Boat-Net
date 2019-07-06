@@ -166,6 +166,8 @@ void setup()
 {
   // ----- Serial communication
   Serial.begin(115200);                                 //Use only for debugging
+  Serial.println("");
+  Serial.println("BSTRT");								//Restart Trigger for Python						
   Wire.begin();                                         //Start I2C as master
   Wire.setClock(400000);
   

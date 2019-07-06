@@ -5,10 +5,9 @@ import matplotlib.cm as cm
 from matplotlib import pyplot as plt
 from etc.var import map_val
 from etc.var import overflow_value
-from etc.log import log
 
 
-class ScanSignals():
+class ScanSignals:
     def __init__(self, lte_stick, ardu):
         self.lte_stick = lte_stick
         self.arduino = ardu
@@ -23,7 +22,8 @@ class ScanSignals():
             self.radii.append(0)
 
     def scan_complete(self, resolution=32, lte_duration=7, loop=None):
-        self.run_trigger = True
+        if self.arduino.run_trigger:
+            self.run_trigger = True
         servo_angle = self.arduino.servo_max_angle - self.arduino.servo_min_angle
         i = 0
         temp_hdg = self.arduino.heading
@@ -33,7 +33,8 @@ class ScanSignals():
             temp_angle = map_val(temp_angle, -(servo_angle / 2), (servo_angle / 2), -512, 512)
             temp_res_angle = self.null_hdg - self.arduino.heading
             i_correct = int(round(temp_angle / resolution))
-            # TODO Grad bzw Keys falsch rum ? +/- .. Werte auf plot nicht vermittelt ( fangen immer bei null an )
+            # TODO (HDG) Werte auf plot nicht vermittelt ( fangen immer bei null an ) oder +/- fail
+            # TODO Arduino HDG Overflow bei scan abschalten bzw in servo pos rein rechnen.
             if loop:
                 i = i + i_correct
             else:
@@ -46,9 +47,8 @@ class ScanSignals():
                 val = round(1024 - (i + 1) * resolution)
 
             temp_res_angle = map_val(temp_res_angle, -180, 180, int(-(self.N/2)), int(self.N/2))
-            res_hdg = val - int(temp_res_angle)                     # TODO Check +/-
+            res_hdg = val - int(temp_res_angle)
             res_hdg = overflow_value(res_hdg, self.N)
-
             self.arduino.set_servo(servo=1, val=val)
             time.sleep(0.2)
             temp = [0, 0, 0]
@@ -66,8 +66,8 @@ class ScanSignals():
                 print("EM Break")
                 break
             for ind in range(3):
-                if val in self.scanres:
-                    temp[ind] = (self.scanres[val][(ind + 1)] + (temp[ind] / lte_duration)) / 2
+                if res_hdg in self.scanres:
+                    temp[ind] = (self.scanres[res_hdg][(ind + 1)] + (temp[ind] / lte_duration)) / 2
                 else:
                     temp[ind] = (temp[ind] / lte_duration)
             #                    mode,    rsrq,    rsrp,    sirn
