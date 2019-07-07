@@ -61,15 +61,16 @@
 Servo servo1;
 #define SERV_MIN 544
 #define SERV_MAX 2400
+#define SERV_MAP 1023
 // Serial Buffer values
 int servoList[2][2] = {{0, 950}, {0, 950}}; // {{val, new_servospeed},{servo2,..}}
 int new_servospeed 	= 0;
 int new_servoval 	= 0;
-String packet_flag = "";
-bool run_servo_adj = false;
-bool init_ok = false;
+int packet_flag 	= -1;
+bool run_servo_adj 	= false;
+bool init_ok 		= false;
 // temp values
-float H_buffer = 0;
+float H_buffer 		= 0;
 // Servo slow moving
 int serv_slowmv_val_buffer;
 long serv_slowmv_timer_buffer = micros();
@@ -78,9 +79,10 @@ long serv_slowmv_timer_buffer = micros();
 // ----- DEBUG
 #define DEBUG true
 #define ADJUST false
+// ----- globals
 int serv_max_angle = 235;
 int serv_min_angle;
-// ----- globals
+int serv_N_angle;
 
 int LOOP_counter = 4;	// Start with INIT
 int heading_buffer, LCD_pitch_buffer, LCD_roll_buffer;
@@ -174,6 +176,7 @@ void setup()
   servo1.attach(3);
   serv_min_angle = 180 - serv_max_angle / 2;
   serv_max_angle = serv_min_angle + serv_max_angle;
+  serv_N_angle 	 = round((SERV_MAP / (serv_max_angle - serv_min_angle)) * 360)
   // ----- Provision to disable tilt stabilization
   /*
      Connect a jumper wire between A0 and GRN to disable the "tilt stabilazation"
@@ -682,21 +685,10 @@ void read_mpu_6050_data()
 
 
 // ----- Allow for under/overflow
-// !!!!!!!! TODO TESTEN !!!!!!!!
 float heading_overflow(float h_in) {
   float res = float(int(h_in * 100) % 36000) / 100;
 	return res;
 }
-// !!!!!!!! TODO TESTEN !!!!!!!!
-/*	
-	if(h_in >= 360) { 		
-		return (h_in - 360.);
-	}
-	if (h_in < 0) {			
-		return (h_in + 360.);
-	}		
-  return h_in;
-*/
 
 // -------------------------------
 //  Adjust Servos
@@ -711,15 +703,16 @@ void adjust_servos() {
 	}	
 	
 	//int map_val = map((Heading - Heading_buffer), serv_min_angle, serv_max_angle, SERV_MIN, SERV_MAX);
-	//Serial.println("Heading: " + (String)Heading);
-	//Serial.println("H_buffer: " + (String)H_buffer);
+	//Serial.println("1Heading: " + (String)Heading);
+	//Serial.println("2H_buffer: " + (String)H_buffer);
 	float temp_head = heading_overflow(Heading - H_buffer + serv_min_angle);
-	//Serial.println("temp_head: " + (String)temp_head);
+	//Serial.println("3temp_head: " + (String)temp_head);
 	int map_val = map(temp_head, serv_min_angle, serv_max_angle, SERV_MIN, SERV_MAX);
-	//Serial.println("map_val: " + (String)map_val);
+	//Serial.println("4map_val: " + (String)map_val);
 	map_val 	= map_val + serv_slowmv_val_buffer;
 	map_val		= max(map_val, SERV_MIN);
 	map_val		= min(map_val, SERV_MAX);
+	//Serial.println("5map_val 2 servo: " + (String)map_val);
 	servo1.writeMicroseconds(map_val);	
 }
 
@@ -727,9 +720,9 @@ void adjust_servos() {
 //  Send ACK end of received msg
 // --------------------------
 void send_ack() {
-	Serial.println("ACK " + packet_flag);
+	Serial.println("ACK " + (String)packet_flag);
 	inString 	= "";
-	packet_flag = "";
+	packet_flag = -1;
 }
 // --------------------------
 //  Main Loop - Get Serial - Adj Servo ...
@@ -740,21 +733,21 @@ void loop_contol() {
 	In order to reduce the refresh time only one
 	digit is updated each time around the main loop.
  */
-
+int temp_servo_val, temp_slow_val, flag_1;
 if(init_ok) LOOP_counter++;
 // Adjust Servos each iritation
 if(run_servo_adj) adjust_servos();
 
 
-switch (LOOP_counter) {			
+switch (LOOP_counter) {		
+		
 	////////////////////// Heading /////////////////////////
-	case 1: // ----- Send Heading if change		
-		if(round(Heading) != heading_buffer) {
-			heading_buffer 	= round(Heading); 		
+	case 1: // ----- Send Heading if change
+		flag_1 = round(Heading);
+		if(flag_1 != heading_buffer) {
+			heading_buffer 	= flag_1; 		
 			Serial.println("HDG" + (String)Heading);
-		//	Serial.println(round_heading + "," + servo_read);
 		}
-		//Serial.println("   " + (String)Heading);
 		break;
 
 	/////////////////////// get Serial ///////////////////////////
@@ -762,28 +755,32 @@ switch (LOOP_counter) {
 	case 2: // ----- write Serial if available and Buffer free to Buffer
 		if(Serial.available() > 0) {
 			int stri = Serial.read();
-			if(packet_flag == "") {				
+			
+			if(packet_flag == -1) {				
 				if(DEBUG) {
-					//Serial.println(" FLAG : " + (String)(char)stri);
-					//Serial.println(" FLAG Int: " + (String)stri);
+					Serial.println(" FLAG : " + (String)(char)stri);
+					Serial.println(" FLAG Int: " + (String)stri);
 				}				
-				packet_flag = (String)stri;
+				packet_flag = ((String)stri).toInt();
 			}else{
 				if (isDigit(stri)) {
 					// convert the incoming byte to a char and add it to the string:
 					inString += (char)stri;			
 				}
 			}
-			switch(packet_flag.toInt()) {
+			switch(packet_flag) {
+				
 				case 73:	// "I"	get Init ok
 					if(stri == '\n') {
 						if(inString.toInt() == 1) {
 							init_ok = true;	
-							if(DEBUG) Serial.println("Handshake complete ..");
+							//if(DEBUG) Serial.println("Handshake complete ..");
 						}
 						send_ack();
+						H_buffer = Heading;
+						Serial.println("LH" + (String)H_buffer);	//gimbal lock heading
 					}
-				break;
+				break;				
 				case 65: 	// "A"	Servo Adjust on/off
 					if(stri == '\n') {
 						if(inString.toInt() == 1) {
@@ -797,82 +794,102 @@ switch (LOOP_counter) {
 						}
 					}
 				break;
-				case 83:	// "S"  Servo Parameter					
+				case 66:	// "B"	Set H_buffer if not set in case 83
+					if(stri == '\n') {
+						H_buffer = Heading;							
+						if(DEBUG) Serial.println("Set H_buffer: " + (String)H_buffer);						
+						send_ack();
+						Serial.println("LH" + (String)H_buffer);	//gimbal lock heading
+					}
+				break;
+				case 83:	// "S"  Servo Parameter	
+					if (stri == 'L') { // Set Gimbal Lock
+						H_buffer = Heading;
+						Serial.println("LH" + (String)H_buffer);	//gimbal lock heading
+						inString = "";
+					}				
 					if (stri == ',') { // value
 						new_servoval = map(inString.toInt(), 0, 1023, 0, (SERV_MAX - SERV_MIN));				
-						if(DEBUG) {
-							SERIAL_inBuffer += inString;
-							SERIAL_inBuffer += ",";
-						}
+						//if(DEBUG) {
+						//	SERIAL_inBuffer += inString;
+						//	SERIAL_inBuffer += ",";
+						//}
 						inString = "";
 					}
 					if (stri == ':') { // speed
 						new_servospeed = inString.toInt();			
-						if(DEBUG) {					
-							SERIAL_inBuffer += inString;
-							SERIAL_inBuffer += ":";
-						}
+						//if(DEBUG) {					
+						//	SERIAL_inBuffer += inString;
+						//	SERIAL_inBuffer += ":";
+						//}
 						inString = "";
-					}
+					}					
 					if (stri == '\n') {	// servo number
 						int serv = (inString.toInt() - 1);						
 						servoList[serv][1] = new_servospeed;
 						servoList[serv][0] = new_servoval;
-						H_buffer = Heading;						  
+						if(new_servospeed == 1) {
+							serv_slowmv_val_buffer = new_servoval;
+							//Serial.println("speed = 1" + (String) new_servospeed);
+							LOOP_counter = 0;
+						}
 						// TODO Send ACK if Servo value is set
 						send_ack();									
-						if(DEBUG){
-							//Serial.println(servoList[0][0]);					
-							//Serial.println(SERIAL_inBuffer);
+						//if(DEBUG){
+						//	Serial.println(servoList[0][0]);					
+						//	Serial.println(SERIAL_inBuffer);
 							//Serial.println(SERIAL_inBuffer.toInt());
-							SERIAL_inBuffer = "";						
-						}
+						//	SERIAL_inBuffer = "";						
+						//}
 					}
 				break;
-			}
-			
+				default:
+					if(stri == '\n') {	// ACK -1 .. fail
+						packet_flag = -1;						
+						if(DEBUG){
+							Serial.println(inString);
+						}
+						send_ack();
+					}
+				break;
+			}			
 		}	
-		//if(INIT_min and INIT_max) {	LOOP_counter = 0; }
-		//LOOP_counter = 0;
 	break;
 		
 	////////////////////// Servo slow move /////////////////////////
 
 	case 3:		
-		if((round(servoList[0][0]) / 10) != (round(serv_slowmv_val_buffer / 10))) {
-			if((round(servoList[0][0]) / 10) > (round(serv_slowmv_val_buffer / 10))) {	
-				if(servoList[0][1] == 1) {
-					serv_slowmv_val_buffer = servoList[0][0];
-				}else{
-					if((micros() - serv_slowmv_timer_buffer) > pow(servoList[0][1], 2) ) {
+		if(servoList[0][1] != 1) {			
+			temp_servo_val = round(servoList[0][0] / 10);
+			temp_slow_val  = round(serv_slowmv_val_buffer / 10);
+
+			if(temp_servo_val != temp_slow_val) {
+				if((micros() - serv_slowmv_timer_buffer) > pow(servoList[0][1], 2) ) {
+					if(temp_servo_val > temp_slow_val) {					
 						serv_slowmv_val_buffer += 10;
-						serv_slowmv_timer_buffer = micros();
-						if(DEBUG){	
-							Serial.println("ADJ+");
-						}
-					}
+						//if(DEBUG){	
+						//	Serial.println("ADJ+");
+						//}
+									
+					}else{				
+						serv_slowmv_val_buffer -= 10;						
+						//if(DEBUG){						
+						//	Serial.println("ADJ-");	
+						//}						
+					}	
+					serv_slowmv_timer_buffer = micros();
 				}
 			}else{
-				if(servoList[0][1] == 1) {
-					serv_slowmv_val_buffer = servoList[0][0];
-				}else{
-					if((micros() - serv_slowmv_timer_buffer) > pow(servoList[0][1], 2) ) {
-						serv_slowmv_val_buffer -= 10;
-						serv_slowmv_timer_buffer = micros();
-						if(DEBUG){						
-							Serial.println("ADJ-");	
-						}						
-					}
-				}				
+				servoList[0][1] = 1;
 			}
 		}
-		LOOP_counter = 0;
-		break;
+	LOOP_counter = 0;
+	break;
 
 	////////////////////// Init /////////////////////////
 	case 4:
 		Serial.println("INITMIN" + (String)serv_min_angle + "INITMAX"+ (String)serv_max_angle + "HDG" + (String)Heading);
-
+		
 		//if(INIT_min and INIT_max) {	LOOP_counter = 0; }else{	LOOP_counter = 2;}
 		LOOP_counter = 2;
 		break;

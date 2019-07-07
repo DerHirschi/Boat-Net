@@ -13,12 +13,12 @@ class LTEStick():
             self.client = Client(AuthorizedConnection(stick_addi))
         except Exception:
             print("Connection2Modem Error ...")
-            raise
+            raise ConnectionError
 
     def get_int(self, value):
-        if(value is None):
+        if value is None:
             return None
-        elif(value == "Unknown"):
+        elif value == "Unknown":
             return None
         else:
             return int(value.split('d')[0])

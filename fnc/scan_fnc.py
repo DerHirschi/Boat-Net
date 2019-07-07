@@ -5,7 +5,7 @@ import matplotlib.cm as cm
 from matplotlib import pyplot as plt
 from etc.var import map_val
 from etc.var import overflow_value
-# from etc.log import *
+from etc.log import *
 
 
 class ScanSignals:
@@ -38,26 +38,39 @@ class ScanSignals:
 
         i2 = overflow_value(i2, self.N)
         temp_hdg = self.arduino.heading
-        while i <= int(1024/resolution):
+        i_correct = 0
+        while i <= (int(1024/resolution) + i_correct):
             temp_angle = temp_hdg - self.arduino.heading
             temp_hdg = self.arduino.heading
             temp_angle = map_val(temp_angle, -(servo_angle / 2), (servo_angle / 2), -512, 512)
             i_correct = int(round(temp_angle / resolution))
-            # TODO (HDG) Werte auf plot nicht vermittelt ( fangen immer bei null an )
             # TODO Arduino HDG Overflow bei scan abschalten bzw in servo pos rein rechnen.
             # TODO Check ob nachfuehrung in der fnc hier noetig ist da Ardu ja schon nachfuehrt
-            if loop:
-                i = i + i_correct
-                i = max(i, 0)
-                val = round(1024 - (i + 1) * resolution)
-            else:
-                i = i - i_correct
-                i = max(i, 0)
-                val = int(i * resolution)
-            if (i * resolution) > 1023:
-                break
-
+            # TODO HDG Temp ( ausgleich HDG ) separat setzen. ( vor scan beginn )
             res_hdg = overflow_value(i2, self.N)
+            log("", 9)
+            if loop:
+                log("loop True i: {}".format(i), 9)
+                # i = i + i_correct   # i_correct = max/min loop trigger
+                log("i_correct: {}".format(i_correct), 9)
+                i = min(i, int(1024 / resolution))
+                log("i min: {}".format(i), 9)
+                val = round(1024 - i * resolution)
+                log("val: {}".format(val), 9)
+                i2 -= resolution
+            else:
+                log("loop False i: {}".format(i), 9)
+                # i = i - i_correct
+                log("i_correct: {}".format(i_correct), 9)
+                i = min(i, int(1024 / resolution))
+                log("i min: {}".format(i), 9)
+                val = int(i * resolution)
+                log("val: {}".format(val), 9)
+                i2 += resolution
+            # if (i * resolution) > 1023:
+            #    break
+            i += 1
+            log("res_hdg: {}".format(res_hdg), 9)
             self.arduino.set_servo(servo=1, val=val)
             time.sleep(0.2)
             temp = [0, 0, 0]
@@ -78,23 +91,18 @@ class ScanSignals:
                     temp[ind] = (self.scanres[res_hdg][(ind + 1)] + (temp[ind] / lte_duration)) / 2
                 else:
                     temp[ind] = (temp[ind] / lte_duration)
-            #                    mode,    rsrq,    rsrp,    sirn
-            if loop:
-                i2 -= resolution
-            else:
-                i2 += resolution
-            i += 1
-            # log("self.scanres[res_hdg] " + str([temp[3], temp[0], temp[1], temp[2]]) + "key " + str(res_hdg), 9)
 
+            # log("self.scanres[res_hdg] " + str([temp[3], temp[0], temp[1], temp[2]]) + "key " + str(res_hdg), 9)
+            #                           mode,    rsrq,    rsrp,    sirn
             self.scanres[res_hdg] = [temp[3], temp[0], temp[1], temp[2]]
 
     def scan_cycle(self, duration=2, timer=-1, resolution=32, lte_duration=7):
         print("Run Scan Thread")
         lo = True
+        self.run_trigger = True
         if timer != -1:
-            self.run_trigger = True
             ti = time.time()
-            while self.run_trigger:
+            while self.run_trigger and self.arduino.run_trigger:
                 print("Timed Thread")
                 self.scan_complete(resolution=resolution, loop=lo, lte_duration=lte_duration)
                 if lo:
@@ -105,16 +113,20 @@ class ScanSignals:
                     break
         else:
             for n in range(duration):
-                print("Scan Nr: " + str(n))
-                self.scan_complete(resolution=resolution, loop=lo)
-                if lo:
-                    lo = False
-                else:
-                    lo = True
+                if self.run_trigger and self.arduino.run_trigger:
+                    print("Scan Nr: " + str(n))
+                    self.scan_complete(resolution=resolution, loop=lo)
+                    if lo:
+                        lo = False
+                    else:
+                        lo = True
         self.run_trigger = False
 
     def run_scan_cycle_thread(self, duration=2, timer=-1, resolution=32, lte_duration=7):
-        return threading.Thread(target=self.scan_cycle, args=(duration, timer, resolution, lte_duration)).start()
+        if self.arduino.run_trigger:
+            return threading.Thread(target=self.scan_cycle, args=(duration, timer, resolution, lte_duration)).start()
+        else:
+            return False
 
     def get_peak(self):
         res, key = None, None

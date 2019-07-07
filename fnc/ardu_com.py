@@ -25,6 +25,7 @@ class ArduCom:
         self.heading = 0            # Heading get back from Ardu ( get after success full handshake)
         self.servo_min_angle = 0    # Angle get from Ardu Handshake. need to calculate scan angle
         self.servo_max_angle = 0    # Angle get from Ardu Handshake. need to calculate scan angle
+        self.lock_hdg = 0           # Gimbal Lock Heading
         # Flags
         self.servo_on = False       # Servo toggle ( on/off Servo Gimbal on Ardu)
         self.servo_val = 512        # Temp Servo value
@@ -37,7 +38,7 @@ class ArduCom:
             print("Handshake failed !")
             self.run_trigger = False
             self.close()
-            raise Exception("Handshake failed")
+            raise ConnectionAbortedError
 
     def close(self):
         self.ser.close()
@@ -58,6 +59,7 @@ class ArduCom:
                     self.servo_max_angle = int(ser_buffer[(ser_buffer.find("INITMAX") + len("INITMAX")):(ser_buffer.find("HDG"))])
                     self.ser.write(bytes((flag + str(int(True)) + '\n'), 'utf-8'))
                     ser_buffer = b''
+                    count = 0
                 elif 'ACK' in ser_buffer:                  # Init ACK
                     while self.ack != -1:
                         pass
@@ -84,7 +86,7 @@ class ArduCom:
     def read_serial(self):
         ser_buffer = b''
         while self.run_trigger:
-            temp_buffer = self.ser.read(1)
+            temp_buffer = self.ser.read(1)      # TODO try
             if temp_buffer == b'\n':
                 # parsing
                 ser_buffer = ser_buffer.decode('UTF-8')
@@ -97,23 +99,25 @@ class ArduCom:
         self.close()
 
     def parse_in_packet(self, buffer_in):
-        # TODO Detect Ardu restart and get new Handshake (stop and restart receiver thread)
         # print("Parser In:" + str(buffer_in))
         # ACK
         if 'ACK' in buffer_in:
             while self.ack != -1:
                 pass
             self.ack = chr(int(buffer_in[3:]))
-            # print('ACK-Recv :' + str(self.ack))
+            print('ACK-Recv :' + str(self.ack))
         # Heading
         elif 'HDG' in buffer_in:
             self.heading = float(buffer_in[3:])
+        # Gimbal lock Heading
+        elif 'LH' in buffer_in:     # TODO data behind flag. bool 1 or so
+            self.lock_hdg = float(buffer_in[3:])
         # Restart
         elif 'BSTRT' in buffer_in:
             print("Get Arduino Restart Trigger !!!")
             self.run_trigger = False
         else:
-            print(buffer_in)
+            print("Ardu: {}".format(buffer_in))
 
     def send_w_ack(self, flag, out_string):
         while self.ack != -1:
@@ -130,15 +134,17 @@ class ArduCom:
                 break
         self.ack = -1
 
-    def set_servo(self, servo=1, val=512, speed=1, wait_servo_confirm=False):
+    def set_servo(self, servo=1, val=512, speed=1, new_gimbal_lock=False, wait_servo_confirm=False):
         flag = 'S'      # 'S' = 83
-        if self.servo_val != val:
-            out = "{},{}:{}".format(val, speed, servo)
-            self.servo_val = val
-            self.send_w_ack(flag, out)
-            # TODO entweder via ACK o extra Flag parsing
-            if wait_servo_confirm:
-                pass
+        out = ''
+        if new_gimbal_lock:
+            out += 'L'
+        out += '{},{}:{}'.format(val, speed, servo)
+        self.servo_val = val
+        self.send_w_ack(flag, out)
+        # TODO entweder via ACK o extra Flag parsing
+        if wait_servo_confirm:
+            pass
 
     def toggle_servos(self, switch=None):  # Servo toggle ( on/off Servo Gimbal on Ardu)
         flag = 'A'      # 'A' = 65
@@ -147,4 +153,9 @@ class ArduCom:
         else:
             self.servo_on = switch
         self.send_w_ack(flag, str(int(self.servo_on)))
+
+    def set_gimbal_lock_hdg(self):
+        flag = 'B'  # 'B' = 66
+        self.send_w_ack(flag, "")
+
 

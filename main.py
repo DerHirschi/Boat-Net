@@ -17,14 +17,14 @@ class Main:
             self.ardu = self.init_ardu()
             print("Arduino init")
             self.run_trigger = True
-        except:
+        except ConnectionAbortedError:
             print("Arduino failed")
 
         if self.run_trigger:
             try:
                 self.lte = self.init_lte(modem)
                 print("LTE init")
-            except:
+            except ConnectionError:
                 print("LTE failed")
                 self.run_trigger = False
 
@@ -58,14 +58,14 @@ class Main:
     def init_ardu(self):
         try:
             return ArduCom()
-        except:
-            return False
+        except ConnectionAbortedError:
+            raise ConnectionAbortedError
 
     def init_lte(self, modem):
         try:
             return LTEStick(modem)
-        except Exception:
-            return False
+        except ConnectionError:
+            raise ConnectionError
 
     def init_scan(self):
         return ScanSignals(lte_stick=self.lte, ardu=self.ardu)
@@ -79,14 +79,15 @@ if main.run_trigger:
     main.ardu.toggle_servos(True)
     try:
         while main.run_trigger:
-            main.scan.scan_cycle(resolution=24, lte_duration=7)
-            # main.scan.plot_scan()
-            threading.Thread(target=main.scan.plot_scan).start()
-            # tmp = sorted(main.scan.scanres.keys())
-            # for key in tmp:
-            #     log("{} - {}".format(main.scan.scanres[key], key), 9)
+            if main.ardu.run_trigger:
+                main.scan.scan_cycle(resolution=24, lte_duration=7)
+                # main.scan.plot_scan()
+                threading.Thread(target=main.scan.plot_scan).start()
+                # tmp = sorted(main.scan.scanres.keys())
+                # for key in tmp:
+                #     log("{} - {}".format(main.scan.scanres[key], key), 9)
 
-            # log("\n")
+                # log("\n")
 
     except KeyboardInterrupt:
         main.run_trigger = False
