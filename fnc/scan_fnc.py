@@ -5,6 +5,10 @@ import matplotlib.cm as cm
 from matplotlib import pyplot as plt
 from etc.var import map_val
 from etc.var import overflow_value
+from etc.log import *
+
+DEBUGlogConf.file_out = False
+DEBUGlogConf.print_out = False
 
 
 class ScanSignals:
@@ -26,29 +30,50 @@ class ScanSignals:
             self.run_trigger = True
         servo_angle = self.arduino.servo_max_angle - self.arduino.servo_min_angle
         i = 0
+        val = 0
+        temp_res_angle = self.null_hdg - self.arduino.heading
+        log(" ", 9)
+        log("scan_comp() Init ", 9)
+        log("temp_res_angle 1  " + str(temp_res_angle), 9)
+        temp_res_angle = map_val(temp_res_angle, -180, 180, int(-(self.N / 2)), int(self.N / 2))
+        log("temp_res_angle map 2  " + str(temp_res_angle), 9)
+        i2 = 0
+        if loop:
+            i2 = int((self.N / 2) + 512 + int(temp_res_angle))
+            log("i2 Init True  " + str(i2), 9)
+            log("", 9)
+        else:
+            i2 = int((self.N / 2) - 512 + int(temp_res_angle))
+            log("i2 Init False  " + str(i2), 9)
+
+        i2 = overflow_value(i2, self.N)
         temp_hdg = self.arduino.heading
+        log("", 9)
         while i <= int(1024/resolution):
             temp_angle = temp_hdg - self.arduino.heading
             temp_hdg = self.arduino.heading
             temp_angle = map_val(temp_angle, -(servo_angle / 2), (servo_angle / 2), -512, 512)
             temp_res_angle = self.null_hdg - self.arduino.heading
             i_correct = int(round(temp_angle / resolution))
-            # TODO (HDG) Werte auf plot nicht vermittelt ( fangen immer bei null an ) oder +/- fail
+            # TODO (HDG) Werte auf plot nicht vermittelt ( fangen immer bei null an )
             # TODO Arduino HDG Overflow bei scan abschalten bzw in servo pos rein rechnen.
+            # TODO Check ob nachfuehrung in der fnc hier noetig ist da Ardu ja schon nachfuehrt
             if loop:
                 i = i + i_correct
+                i = max(i, 0)
+                val = round(1024 - (i + 1) * resolution)
             else:
                 i = i - i_correct
+                i = max(i, 0)
+                val = int(i * resolution)
             if (i * resolution) > 1023:
                 break
-            i = max(i, 0)
-            val = int(i * resolution)
-            if loop:
-                val = round(1024 - (i + 1) * resolution)
 
-            temp_res_angle = map_val(temp_res_angle, -180, 180, int(-(self.N/2)), int(self.N/2))
-            res_hdg = val - int(temp_res_angle)
-            res_hdg = overflow_value(res_hdg, self.N)
+            res_hdg = overflow_value(i2, self.N)
+            log("val " + str(val) + ' ' + str(loop), 9)
+            log("i2 " + str(i2), 9)
+            # log("temp_res_angle " + str(temp_res_angle), 9)
+            log("res_hdg " + str(res_hdg), 9)
             self.arduino.set_servo(servo=1, val=val)
             time.sleep(0.2)
             temp = [0, 0, 0]
@@ -71,8 +96,12 @@ class ScanSignals:
                 else:
                     temp[ind] = (temp[ind] / lte_duration)
             #                    mode,    rsrq,    rsrp,    sirn
+            if loop:
+                i2 -= resolution
+            else:
+                i2 += resolution
             i += 1
-            # print("self.scanres[res_hdg] " + str([temp[3], temp[0], temp[1], temp[2]]) + "key " + str(res_hdg))
+            # log("self.scanres[res_hdg] " + str([temp[3], temp[0], temp[1], temp[2]]) + "key " + str(res_hdg), 9)
 
             self.scanres[res_hdg] = [temp[3], temp[0], temp[1], temp[2]]
 

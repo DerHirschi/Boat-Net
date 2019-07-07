@@ -9,18 +9,18 @@ import time
 
 class Main:
     def __init__(self, modem):
-        self.run_trigger = True
+        self.run_trigger = False
         self.ardu = None
         self.lte = None
         self.scan = None
         try:
             self.ardu = self.init_ardu()
             print("Arduino init")
+            self.run_trigger = True
         except:
             print("Arduino failed")
-            self.run_trigger = False
 
-        if self.ardu:
+        if self.run_trigger:
             try:
                 self.lte = self.init_lte(modem)
                 print("LTE init")
@@ -75,12 +75,12 @@ main = Main(modem1)
 if main.run_trigger:
     print("Main init")
 
-    #main.ardu.set_servo(val=200)
+    # main.ardu.set_servo(val=200)
     main.ardu.toggle_servos(True)
     try:
         while main.run_trigger:
-            main.scan.scan_cycle(resolution=16, lte_duration=7)
-            main.scan.plot_scan()
+            main.scan.scan_cycle(resolution=24, lte_duration=7)
+            # main.scan.plot_scan()
             threading.Thread(target=main.scan.plot_scan).start()
             # tmp = sorted(main.scan.scanres.keys())
             # for key in tmp:
@@ -92,10 +92,10 @@ if main.run_trigger:
         main.run_trigger = False
 
     main.run_trigger = False
-    log(main.scan.scanres, 9)
-    tmp = sorted(main.scan.scanres.keys())
-    for key in tmp:
-        log("{} - {}".format(main.scan.scanres[key], key), 9)
+    # log(main.scan.scanres, 9)
+    # tmp = sorted(main.scan.scanres.keys())
+    # for key in tmp:
+    #     log("{} - {}".format(main.scan.scanres[key], key), 9)
 
 else:
     print("Main init failed. . .")

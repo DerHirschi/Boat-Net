@@ -35,6 +35,8 @@ class ArduCom:
             self.receiver = threading.Thread(target=self.read_serial).start()
         else:
             print("Handshake failed !")
+            self.run_trigger = False
+            self.close()
             raise Exception("Handshake failed")
 
     def close(self):
