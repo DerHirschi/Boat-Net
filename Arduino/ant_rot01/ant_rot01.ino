@@ -82,7 +82,10 @@ long serv_slowmv_timer_buffer = micros();
 // ----- globals
 int serv_max_angle = 235;
 int serv_min_angle;
-int serv_N_angle;
+int serv_N_angle;	// gemappter max angle
+int serv_N_halfe_angle;	// gemappter max angle
+int serv_N_ms;	// gemappter max microseconds
+int serv_N_halfe_ms;	// gemappter max microseconds
 
 int LOOP_counter = 4;	// Start with INIT
 int heading_buffer, LCD_pitch_buffer, LCD_roll_buffer;
@@ -174,9 +177,12 @@ void setup()
   Wire.setClock(400000);
   
   servo1.attach(3);
-  serv_min_angle = 180 - serv_max_angle / 2;
-  serv_max_angle = serv_min_angle + serv_max_angle;
-  serv_N_angle 	 = round((SERV_MAP / (serv_max_angle - serv_min_angle)) * 360)
+  serv_min_angle 	 = 180 - serv_max_angle / 2;
+  serv_max_angle 	 = serv_min_angle + serv_max_angle;
+  serv_N_angle 	 	 = round((SERV_MAP / (serv_max_angle - serv_min_angle)) * 360);
+  serv_N_ms		 	 = round(((SERV_MAX - SERV_MIN) / (serv_max_angle - serv_min_angle)) * 360);
+  serv_N_halfe_angle = round(serv_N_angle / 2);
+  serv_N_halfe_ms 	 = round(serv_N_ms / 2);
   // ----- Provision to disable tilt stabilization
   /*
      Connect a jumper wire between A0 and GRN to disable the "tilt stabilazation"
@@ -707,7 +713,8 @@ void adjust_servos() {
 	//Serial.println("2H_buffer: " + (String)H_buffer);
 	float temp_head = heading_overflow(Heading - H_buffer + serv_min_angle);
 	//Serial.println("3temp_head: " + (String)temp_head);
-	int map_val = map(temp_head, serv_min_angle, serv_max_angle, SERV_MIN, SERV_MAX);
+	//int map_val = map(temp_head, serv_min_angle, serv_max_angle, SERV_MIN, SERV_MAX);
+	int map_val = map(temp_head, 0, 360, 0, serv_N_ms);
 	//Serial.println("4map_val: " + (String)map_val);
 	map_val 	= map_val + serv_slowmv_val_buffer;
 	map_val		= max(map_val, SERV_MIN);
@@ -809,7 +816,9 @@ switch (LOOP_counter) {
 						inString = "";
 					}				
 					if (stri == ',') { // value
-						new_servoval = map(inString.toInt(), 0, 1023, 0, (SERV_MAX - SERV_MIN));				
+						//new_servoval = map(inString.toInt(), 0, 1023, 0, (SERV_MAX - SERV_MIN));				
+						new_servoval = map((inString.toInt() - 2000), -serv_N_halfe_angle, serv_N_halfe_angle, -serv_N_halfe_ms, serv_N_halfe_ms);				
+						
 						//if(DEBUG) {
 						//	SERIAL_inBuffer += inString;
 						//	SERIAL_inBuffer += ",";

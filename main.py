@@ -76,6 +76,7 @@ if main.run_trigger:
     print("Main init")
 
     # main.ardu.set_servo(val=200)
+    main.ardu.set_gimbal_lock_hdg()
     main.ardu.toggle_servos(True)
     try:
         while main.run_trigger:

@@ -134,12 +134,12 @@ class ArduCom:
                 break
         self.ack = -1
 
-    def set_servo(self, servo=1, val=512, speed=1, new_gimbal_lock=False, wait_servo_confirm=False):
+    def set_servo(self, servo=1, val=2512, speed=1, new_gimbal_lock=False, wait_servo_confirm=False):
         flag = 'S'      # 'S' = 83
         out = ''
         if new_gimbal_lock:
             out += 'L'
-        out += '{},{}:{}'.format(val, speed, servo)
+        out += '{},{}:{}'.format((val + 2000), speed, servo)     # val+2000 to get - values
         self.servo_val = val
         self.send_w_ack(flag, out)
         # TODO entweder via ACK o extra Flag parsing

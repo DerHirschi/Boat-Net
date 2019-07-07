@@ -26,6 +26,7 @@ class ScanSignals:
         if self.arduino.run_trigger:
             self.run_trigger = True
         servo_angle = self.arduino.servo_max_angle - self.arduino.servo_min_angle
+        # i = int(1024/resolution/2)
         i = 0
         val = 0
         temp_res_angle = self.null_hdg - self.arduino.heading
@@ -37,12 +38,17 @@ class ScanSignals:
             i2 = int((self.N / 2) - 512 + int(temp_res_angle))
 
         i2 = overflow_value(i2, self.N)
-        temp_hdg = self.arduino.heading
-        i_correct = 0
-        while i <= (int(1024/resolution) + i_correct):
+        temp_hdg = self.arduino.lock_hdg
+        temp_angle = temp_hdg - self.arduino.heading
+        temp_angle = map_val(temp_angle, -180, 180, -(self.N/2), self.N/2)
+        i_correct = int(round(temp_angle / resolution))
+
+        while True:
+            if i > (int(1024/resolution) + i_correct):
+                break
             temp_angle = temp_hdg - self.arduino.heading
-            temp_hdg = self.arduino.heading
-            temp_angle = map_val(temp_angle, -(servo_angle / 2), (servo_angle / 2), -512, 512)
+            # temp_hdg = self.arduino.heading
+            temp_angle = map_val(temp_angle, -180, 180, -(self.N/2), self.N/2)
             i_correct = int(round(temp_angle / resolution))
             # TODO Arduino HDG Overflow bei scan abschalten bzw in servo pos rein rechnen.
             # TODO Check ob nachfuehrung in der fnc hier noetig ist da Ardu ja schon nachfuehrt
@@ -53,22 +59,24 @@ class ScanSignals:
                 log("loop True i: {}".format(i), 9)
                 # i = i + i_correct   # i_correct = max/min loop trigger
                 log("i_correct: {}".format(i_correct), 9)
-                i = min(i, int(1024 / resolution))
-                log("i min: {}".format(i), 9)
-                val = round(1024 - i * resolution)
+                # i = min(i, int(1024 / resolution))
+                # log("i min: {}".format(i), 9)
+                val = round(((1024 + i_correct) - (i + i_correct) * resolution))
                 log("val: {}".format(val), 9)
                 i2 -= resolution
             else:
                 log("loop False i: {}".format(i), 9)
                 # i = i - i_correct
                 log("i_correct: {}".format(i_correct), 9)
-                i = min(i, int(1024 / resolution))
-                log("i min: {}".format(i), 9)
+                # i = min(i, int(1024 / resolution))
+                # log("i min: {}".format(i), 9)
                 val = int(i * resolution)
                 log("val: {}".format(val), 9)
                 i2 += resolution
             # if (i * resolution) > 1023:
             #    break
+            # val = val + int(self.N / 2)
+            # log("val cor: {}".format(val), 9)
             i += 1
             log("res_hdg: {}".format(res_hdg), 9)
             self.arduino.set_servo(servo=1, val=val)
