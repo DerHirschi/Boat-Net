@@ -5,10 +5,7 @@ import matplotlib.cm as cm
 from matplotlib import pyplot as plt
 from etc.var import map_val
 from etc.var import overflow_value
-from etc.log import *
-
-DEBUGlogConf.file_out = False
-DEBUGlogConf.print_out = False
+# from etc.log import *
 
 
 class ScanSignals:
@@ -32,28 +29,19 @@ class ScanSignals:
         i = 0
         val = 0
         temp_res_angle = self.null_hdg - self.arduino.heading
-        log(" ", 9)
-        log("scan_comp() Init ", 9)
-        log("temp_res_angle 1  " + str(temp_res_angle), 9)
         temp_res_angle = map_val(temp_res_angle, -180, 180, int(-(self.N / 2)), int(self.N / 2))
-        log("temp_res_angle map 2  " + str(temp_res_angle), 9)
         i2 = 0
         if loop:
             i2 = int((self.N / 2) + 512 + int(temp_res_angle))
-            log("i2 Init True  " + str(i2), 9)
-            log("", 9)
         else:
             i2 = int((self.N / 2) - 512 + int(temp_res_angle))
-            log("i2 Init False  " + str(i2), 9)
 
         i2 = overflow_value(i2, self.N)
         temp_hdg = self.arduino.heading
-        log("", 9)
         while i <= int(1024/resolution):
             temp_angle = temp_hdg - self.arduino.heading
             temp_hdg = self.arduino.heading
             temp_angle = map_val(temp_angle, -(servo_angle / 2), (servo_angle / 2), -512, 512)
-            temp_res_angle = self.null_hdg - self.arduino.heading
             i_correct = int(round(temp_angle / resolution))
             # TODO (HDG) Werte auf plot nicht vermittelt ( fangen immer bei null an )
             # TODO Arduino HDG Overflow bei scan abschalten bzw in servo pos rein rechnen.
@@ -70,10 +58,6 @@ class ScanSignals:
                 break
 
             res_hdg = overflow_value(i2, self.N)
-            log("val " + str(val) + ' ' + str(loop), 9)
-            log("i2 " + str(i2), 9)
-            # log("temp_res_angle " + str(temp_res_angle), 9)
-            log("res_hdg " + str(res_hdg), 9)
             self.arduino.set_servo(servo=1, val=val)
             time.sleep(0.2)
             temp = [0, 0, 0]
@@ -82,7 +66,6 @@ class ScanSignals:
                     sigs = self.lte_stick.get_string()
                     if all(sigs):
                         temp = [temp[0] + sigs[0], temp[1] + sigs[1], temp[2] + sigs[2], sigs[3]]
-                        # print("{} - {} {} {}".format(val, sigs[0], sigs[1], sigs[2]))
                         break
                 if not self.run_trigger:
                     print("EM Break")
