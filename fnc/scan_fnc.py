@@ -40,7 +40,7 @@ class ScanSignals:
         i2 = overflow_value(i2, self.N)
         temp_hdg = self.arduino.lock_hdg
         temp_angle = temp_hdg - self.arduino.heading
-        temp_angle = map_val(temp_angle, -180, 180, -(self.N/2), self.N/2)
+        temp_angle = map_val(temp_angle, -(servo_angle / 2), (servo_angle / 2), -512, 512)
         i_correct = int(round(temp_angle / resolution))
 
         while True:
@@ -48,7 +48,7 @@ class ScanSignals:
                 break
             temp_angle = temp_hdg - self.arduino.heading
             # temp_hdg = self.arduino.heading
-            temp_angle = map_val(temp_angle, -180, 180, -(self.N/2), self.N/2)
+            temp_angle = map_val(temp_angle, -(servo_angle / 2), (servo_angle / 2), -512, 512)
             i_correct = int(round(temp_angle / resolution))
             # TODO Arduino HDG Overflow bei scan abschalten bzw in servo pos rein rechnen.
             # TODO Check ob nachfuehrung in der fnc hier noetig ist da Ardu ja schon nachfuehrt
@@ -61,7 +61,7 @@ class ScanSignals:
                 log("i_correct: {}".format(i_correct), 9)
                 # i = min(i, int(1024 / resolution))
                 # log("i min: {}".format(i), 9)
-                val = round(((1024 + i_correct) - (i + i_correct) * resolution))
+                val = int(1024 + (i_correct / resolution) - i * resolution)
                 log("val: {}".format(val), 9)
                 i2 -= resolution
             else:
@@ -70,7 +70,7 @@ class ScanSignals:
                 log("i_correct: {}".format(i_correct), 9)
                 # i = min(i, int(1024 / resolution))
                 # log("i min: {}".format(i), 9)
-                val = int(i * resolution)
+                val = int(i * resolution) + int(i_correct / resolution)
                 log("val: {}".format(val), 9)
                 i2 += resolution
             # if (i * resolution) > 1023:
