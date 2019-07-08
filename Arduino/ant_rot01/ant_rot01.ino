@@ -804,7 +804,7 @@ switch (LOOP_counter) {
 				case 66:	// "B"	Set H_buffer if not set in case 83
 					if(stri == '\n') {
 						H_buffer = Heading;							
-						if(DEBUG) Serial.println("Set H_buffer: " + (String)H_buffer);						
+						// if(DEBUG) Serial.println("Set H_buffer: " + (String)H_buffer);						
 						send_ack();
 						Serial.println("LH" + (String)H_buffer);	//gimbal lock heading
 					}

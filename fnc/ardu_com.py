@@ -111,7 +111,7 @@ class ArduCom:
             self.heading = float(buffer_in[3:])
         # Gimbal lock Heading
         elif 'LH' in buffer_in:     # TODO data behind flag. bool 1 or so
-            self.lock_hdg = float(buffer_in[3:])
+            self.lock_hdg = float(buffer_in[2:])
         # Restart
         elif 'BSTRT' in buffer_in:
             print("Get Arduino Restart Trigger !!!")

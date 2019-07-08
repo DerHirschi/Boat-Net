@@ -83,7 +83,7 @@ if main.run_trigger:
             if main.ardu.run_trigger:
                 main.scan.scan_cycle(resolution=24, lte_duration=7)
                 # main.scan.plot_scan()
-                threading.Thread(target=main.scan.plot_scan).start()
+                # threading.Thread(target=main.scan.plot_scan).start()
                 # tmp = sorted(main.scan.scanres.keys())
                 # for key in tmp:
                 #     log("{} - {}".format(main.scan.scanres[key], key), 9)
