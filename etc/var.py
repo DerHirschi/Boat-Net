@@ -181,6 +181,5 @@ def map_val(sensor_val, in_min, in_max, out_min, out_max):
     return out_val
 
 
-
 if __name__ == '__main__':
     print(overflow_int(256))

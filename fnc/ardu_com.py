@@ -56,7 +56,7 @@ class ArduCom:
                     # room for parsing init vars
                     # print(ser_buffer)
                     self.servo_min_angle = int(ser_buffer[(ser_buffer.find("INITMIN") + len("INITMIN")):(ser_buffer.find("INITMAX"))])
-                    self.servo_max_angle = int(ser_buffer[(ser_buffer.find("INITMAX") + len("INITMAX")):(ser_buffer.find("HDG"))])
+                    self.servo_max_angle = int(ser_buffer[(ser_buffer.find("INITMAX") + len("INITMAX")):(ser_buffer.find("HDG")) ])
                     self.ser.write(bytes((flag + str(int(True)) + '\n'), 'utf-8'))
                     ser_buffer = b''
                     count = 0

@@ -17,7 +17,9 @@ class ScanSignals:
         self.run_trigger = False                # Loop stopper
         # Plot Init #
         self.val_range = 1023
-        self.N = int(round((self.val_range / (self.arduino.servo_max_angle - self.arduino.servo_min_angle)) * 360))
+        self.N = int(self.val_range / (self.arduino.servo_max_angle - self.arduino.servo_min_angle) * 360)
+        # self.N = 1440
+        print("self.N " + str(self.N))
         self.theta = np.arange(0.0, 2 * np.pi, 2 * np.pi / self.N)
         self.radii = []
         for i in range(self.N):
@@ -41,7 +43,7 @@ class ScanSignals:
         val = 0
         n = 0
         n_max = self.val_range
-        step = int(n_max / resolution)
+        step = int(n_max / (resolution + 1))
         n_high = -self.get_hdg_diff_mapped() + n_max  # if loop:
         n_low = self.get_hdg_diff_mapped()            # if not loop:
         while n <= self.N and self.run_trigger:
@@ -58,6 +60,8 @@ class ScanSignals:
                 if (-n_low + n) >= dif:
                     break
             n += step
+            time.sleep(0.5)
+        time.sleep(1)
 
     def scan_complete(self, resolution=32, lte_duration=7, loop=None):
         if self.arduino.run_trigger:

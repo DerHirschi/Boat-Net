@@ -62,6 +62,7 @@ Servo servo1;
 #define SERV_MIN 544
 #define SERV_MAX 2400
 #define SERV_MAP 1023
+
 // Serial Buffer values
 int servoList[2][2] = {{0, 950}, {0, 950}}; // {{val, new_servospeed},{servo2,..}}
 int new_servospeed 	= 0;
@@ -77,14 +78,16 @@ long serv_slowmv_timer_buffer = micros();
 //int SERVO1_buffer 	= 0;
 
 // ----- DEBUG
+int temp_val = 0;
 #define DEBUG true
 #define ADJUST false
+
 // ----- globals
-int serv_max_angle = 216;
-int serv_min_angle;
-int serv_N_angle;	// gemappter max angle
+float serv_max_angle = 216;
+float serv_min_angle;
+float serv_N_angle;	// gemappter max angle
 //int serv_N_halfe_angle;	// gemappter max angle
-int serv_N_ms;	// gemappter max microseconds
+float serv_N_ms;	// gemappter max microseconds
 //int serv_N_halfe_ms;	// gemappter max microseconds
 
 int LOOP_counter = 4;	// Start with INIT
@@ -177,10 +180,11 @@ void setup()
   Wire.setClock(400000);
   
   servo1.attach(3);
+  serv_N_angle 	 	 = float(SERV_MAP / serv_max_angle * 360);
+  serv_N_ms		 	   = float((SERV_MAX - SERV_MIN) / serv_max_angle * 360);
+
   serv_min_angle 	 = 180 - serv_max_angle / 2;
   serv_max_angle 	 = serv_min_angle + serv_max_angle;
-  serv_N_angle 	 	 = round((SERV_MAP / (serv_max_angle - serv_min_angle)) * 360);
-  serv_N_ms		 	 = round(((SERV_MAX - SERV_MIN) / (serv_max_angle - serv_min_angle)) * 360);
   //serv_N_halfe_angle = round(serv_N_angle / 2);
   //serv_N_halfe_ms 	 = round(serv_N_ms / 2);
   // ----- Provision to disable tilt stabilization
@@ -714,10 +718,16 @@ void adjust_servos() {
 	float temp_head = heading_overflow(Heading - H_buffer + serv_min_angle);
 	//Serial.println("3temp_head: " + (String)temp_head);
 	// org int map_val = map(temp_head, serv_min_angle, serv_max_angle, SERV_MIN, SERV_MAX);
-	int map_val = map(temp_head, -360, 360, -serv_N_ms, serv_N_ms);
+	temp_head = map(temp_head, -360, 360, -serv_N_ms, serv_N_ms);
 	//int map_val = map(temp_head, 0, 360, 0, serv_N_ms);
 	//Serial.println("4map_val: " + (String)map_val);
-	map_val 	= map_val + serv_slowmv_val_buffer;  
+	int map_val = temp_head + serv_slowmv_val_buffer;  
+	if(temp_val != serv_slowmv_val_buffer) {
+		temp_val = serv_slowmv_val_buffer;
+		Serial.println("SER  serv_slowmv_val_buffer" + (String)serv_slowmv_val_buffer);
+		Serial.println("SER  map_val" + (String)map_val);
+		Serial.println("SER  temp_head" + (String)temp_head);
+	}
 	map_val		= max(map_val, SERV_MIN);  
 	map_val		= min(map_val, SERV_MAX);  
 	//Serial.println("5map_val 2 servo: " + (String)map_val);
@@ -736,6 +746,7 @@ void send_ack() {
 //  Main Loop - Get Serial - Adj Servo ...
 // --------------------------
 void loop_contol() {
+	
  /*
 	Subroutine for updating the LCD display.
 	In order to reduce the refresh time only one
@@ -899,8 +910,11 @@ switch (LOOP_counter) {
 
 	////////////////////// Init /////////////////////////
 	case 4:
-		Serial.println("INITMIN" + (String)serv_min_angle + "INITMAX"+ (String)serv_max_angle + "HDG" + (String)Heading);
-		
+		int foo = round(serv_max_angle);
+		int bar = round(serv_min_angle);
+		Serial.println("INITMIN" + (String)bar + "INITMAX"+ (String)foo + "HDG" + (String)Heading);
+		Serial.println("NANGLE" + (String)serv_N_angle);
+		Serial.println("NMS" + (String)serv_N_ms);
 		//if(INIT_min and INIT_max) {	LOOP_counter = 0; }else{	LOOP_counter = 2;}
 		LOOP_counter = 2;
 		break;
