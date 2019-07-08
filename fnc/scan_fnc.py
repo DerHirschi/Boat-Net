@@ -16,7 +16,7 @@ class ScanSignals:
         self.null_hdg = self.arduino.heading    # Flag has to set if delete self.scanres
         self.run_trigger = False                # Loop stopper
         # Plot Init #
-        self.val_range = 1024
+        self.val_range = 1023
         self.N = int(round((self.val_range / (self.arduino.servo_max_angle - self.arduino.servo_min_angle)) * 360))
         self.theta = np.arange(0.0, 2 * np.pi, 2 * np.pi / self.N)
         self.radii = []
@@ -44,47 +44,21 @@ class ScanSignals:
         step = int(n_max / resolution)
         n_high = -self.get_hdg_diff_mapped() + n_max  # if loop:
         n_low = self.get_hdg_diff_mapped()            # if not loop:
-        log("NEW MAIN", 9)
-        log(" ", 9)
-        log("HDG " + str(self.arduino.heading), 9)
-        log("HDG-diff " + str(self.get_hdg_diff_mapped()), 9)
-        log("n_high +" + str(n_high), 9)
-        log("n_high -" + str(n_max - self.get_hdg_diff_mapped()), 9)
-        log("n_low " + str(n_low), 9)
-        log(" ", 9)
         while n <= self.N and self.run_trigger:
-            log("LOOP n: " + str(n), 9)
-            log("", 9)
-            log("HDG " + str(self.arduino.heading), 9)
-            log("HDG-diff " + str(self.get_hdg_diff_mapped()), 9)
             if loop:
                 dif = self.get_hdg_diff_mapped() + n_max
-                log("diff True +" + str(n_max + self.get_hdg_diff_mapped()), 9)
-                log("diff True -" + str(n_max - self.get_hdg_diff_mapped()), 9)
-                log("-n_low + n" + str(-n_low + n), 9)
-                log("n_low + n" + str(n_low + n), 9)
                 val = n_high - n
-                # val = min(val, dif)
                 self.set_servo_hdg(val)
                 if (n + n_low) >= dif:
                     break
             else:
                 dif = n_max - self.get_hdg_diff_mapped()
-                log("diff False " + str(dif), 9)
                 val = -n_low + n
-                # val = min(val, dif)
                 self.set_servo_hdg(val)
                 if (-n_low + n) >= dif:
-                    # if n >= dif:
                     break
-            log("n_high " + str(n_high) + ' n_low ' + str(n_low), 9)
-            log(" ", 9)
             time.sleep(0.5)
             n += step
-        time.sleep(5)
-        log("END MAIN ", 9)
-        log(" ", 9)
-        log(" ", 9)
 
 
     def scan_complete(self, resolution=32, lte_duration=7, loop=None):
