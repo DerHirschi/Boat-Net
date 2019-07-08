@@ -80,7 +80,7 @@ long serv_slowmv_timer_buffer = micros();
 #define DEBUG true
 #define ADJUST false
 // ----- globals
-int serv_max_angle = 235;
+int serv_max_angle = 216;
 int serv_min_angle;
 int serv_N_angle;	// gemappter max angle
 int serv_N_halfe_angle;	// gemappter max angle
@@ -713,8 +713,8 @@ void adjust_servos() {
 	//Serial.println("2H_buffer: " + (String)H_buffer);
 	float temp_head = heading_overflow(Heading - H_buffer + serv_min_angle);
 	//Serial.println("3temp_head: " + (String)temp_head);
-	//int map_val = map(temp_head, serv_min_angle, serv_max_angle, SERV_MIN, SERV_MAX);
-	int map_val = map(temp_head, 0, 360, 0, serv_N_ms);
+	int map_val = map(temp_head, serv_min_angle, serv_max_angle, SERV_MIN, SERV_MAX);
+	//int map_val = map(temp_head, 0, 360, 0, serv_N_ms);
 	//Serial.println("4map_val: " + (String)map_val);
 	map_val 	= map_val + serv_slowmv_val_buffer;
 	map_val		= max(map_val, SERV_MIN);

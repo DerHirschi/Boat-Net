@@ -17,7 +17,7 @@ class ScanSignals:
         self.run_trigger = False                # Loop stopper
         # Plot Init #
         self.val_range = 1024
-        self.N = round((self.val_range / (self.arduino.servo_max_angle - self.arduino.servo_min_angle)) * 360)
+        self.N = int(round((self.val_range / (self.arduino.servo_max_angle - self.arduino.servo_min_angle)) * 360))
         self.theta = np.arange(0.0, 2 * np.pi, 2 * np.pi / self.N)
         self.radii = []
         for i in range(self.N):
@@ -25,7 +25,7 @@ class ScanSignals:
 
     def get_hdg_diff_mapped(self):
         hdg = self.arduino.heading - self.arduino.lock_hdg
-        return int(map_val(hdg, -180, 180, int(-(self.N / 2)), int(self.N / 2)))
+        return int(map_val(hdg, -360, 360, -self.N, self.N))
 
     def get_compensated_servo_val(self, n, resolution):
         hdg_diff = self.get_hdg_diff_mapped()
@@ -66,7 +66,7 @@ class ScanSignals:
                 val = n_high - n
                 # val = min(val, dif)
                 self.set_servo_hdg(val)
-                if n >= dif:
+                if (n + n_low) >= dif:
                     break
             else:
                 dif = n_max - self.get_hdg_diff_mapped()
@@ -75,6 +75,7 @@ class ScanSignals:
                 # val = min(val, dif)
                 self.set_servo_hdg(val)
                 if (-n_low + n) >= dif:
+                    # if n >= dif:
                     break
             log("n_high " + str(n_high) + ' n_low ' + str(n_low), 9)
             log(" ", 9)
