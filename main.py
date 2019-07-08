@@ -81,7 +81,7 @@ if main.run_trigger:
     try:
         while main.run_trigger:
             if main.ardu.run_trigger:
-                main.scan.scan_cycle(resolution=32, lte_duration=7)
+                main.scan.scan_cycle(resolution=48, lte_duration=7)
                 # main.scan.plot_scan()
                 # threading.Thread(target=main.scan.plot_scan).start()
                 # tmp = sorted(main.scan.scanres.keys())

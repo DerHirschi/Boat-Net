@@ -57,9 +57,7 @@ class ScanSignals:
                 self.set_servo_hdg(val)
                 if (-n_low + n) >= dif:
                     break
-            time.sleep(0.5)
             n += step
-
 
     def scan_complete(self, resolution=32, lte_duration=7, loop=None):
         if self.arduino.run_trigger:
