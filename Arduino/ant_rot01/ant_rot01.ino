@@ -78,7 +78,7 @@ long serv_slowmv_timer_buffer = micros();
 //int SERVO1_buffer 	= 0;
 
 // ----- DEBUG
-int temp_val = 0;
+//int temp_val = 0;
 #define DEBUG true
 #define ADJUST false
 
@@ -722,12 +722,12 @@ void adjust_servos() {
 	//int map_val = map(temp_head, 0, 360, 0, serv_N_ms);
 	//Serial.println("4map_val: " + (String)map_val);
 	int map_val = temp_head + serv_slowmv_val_buffer;  
-	if(temp_val != serv_slowmv_val_buffer) {
-		temp_val = serv_slowmv_val_buffer;
-		Serial.println("SER  serv_slowmv_val_buffer" + (String)serv_slowmv_val_buffer);
-		Serial.println("SER  map_val" + (String)map_val);
-		Serial.println("SER  temp_head" + (String)temp_head);
-	}
+	//if(temp_val != serv_slowmv_val_buffer) {
+	//	temp_val = serv_slowmv_val_buffer;
+	//	Serial.println("SER  serv_slowmv_val_buffer" + (String)serv_slowmv_val_buffer);
+	//	Serial.println("SER  map_val" + (String)map_val);
+	//	Serial.println("SER  temp_head" + (String)temp_head);
+	//}
 	map_val		= max(map_val, SERV_MIN);  
 	map_val		= min(map_val, SERV_MAX);  
 	//Serial.println("5map_val 2 servo: " + (String)map_val);
@@ -777,10 +777,10 @@ switch (LOOP_counter) {
 			int stri = Serial.read();
 			
 			if(packet_flag == -1) {				
-				if(DEBUG) {
-					Serial.println(" FLAG : " + (String)(char)stri);
-					Serial.println(" FLAG Int: " + (String)stri);
-				}				
+				//if(DEBUG) {
+				//	Serial.println(" FLAG : " + (String)(char)stri);
+				//	Serial.println(" FLAG Int: " + (String)stri);
+				//}				
 				packet_flag = ((String)stri).toInt();
 			}else{
 				if (isDigit(stri)) {

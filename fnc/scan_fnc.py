@@ -18,8 +18,6 @@ class ScanSignals:
         # Plot Init #
         self.val_range = 1023
         self.N = int(self.val_range / (self.arduino.servo_max_angle - self.arduino.servo_min_angle) * 360)
-        # self.N = 1440
-        print("self.N " + str(self.N))
         self.theta = np.arange(0.0, 2 * np.pi, 2 * np.pi / self.N)
         self.radii = []
         for i in range(self.N):
@@ -29,17 +27,11 @@ class ScanSignals:
         hdg = self.arduino.heading - self.arduino.lock_hdg
         return int(map_val(hdg, -360, 360, -self.N, self.N))
 
-    def get_compensated_servo_val(self, n, resolution):
-        hdg_diff = self.get_hdg_diff_mapped()
-        n_res = n * resolution
-        val = n_res + hdg_diff
-        return val, hdg_diff
-
     def set_servo_hdg(self, val):
-        log("VAL " + str(val), 9)
+        # log("VAL " + str(val), 9)
         self.arduino.set_servo(servo=1, val=val)
 
-    def scan_active(self, resolution=24, loop=None):
+    def scan_active(self, resolution=24, loop=None, duration=5):
         val = 0
         n = 0
         n_max = self.val_range
@@ -50,100 +42,43 @@ class ScanSignals:
             if loop:
                 dif = self.get_hdg_diff_mapped() + n_max
                 val = n_high - n
-                self.set_servo_hdg(val)
                 if (n + n_low) >= dif:
                     break
             else:
                 dif = n_max - self.get_hdg_diff_mapped()
                 val = -n_low + n
-                self.set_servo_hdg(val)
                 if (-n_low + n) >= dif:
                     break
+            self.set_servo_hdg(val)
+            time.sleep(0.1)
+            self.get_lte_signals(duration=duration, hdg=val, resolution=resolution)
             n += step
-            time.sleep(0.5)
-        time.sleep(1)
 
-    def scan_complete(self, resolution=32, lte_duration=7, loop=None):
-        if self.arduino.run_trigger:
-            self.run_trigger = True
-        servo_angle = self.arduino.servo_max_angle - self.arduino.servo_min_angle
-        # i = int(1024/resolution/2)
-        i = 0
-        val = 0
-        temp_res_angle = self.null_hdg - self.arduino.heading
-        temp_res_angle = map_val(temp_res_angle, -180, 180, int(-(self.N / 2)), int(self.N / 2))
-        i2 = 0
-        if loop:
-            i2 = int((self.N / 2) + 512 + int(temp_res_angle))
-        else:
-            i2 = int((self.N / 2) - 512 + int(temp_res_angle))
-
-        i2 = overflow_value(i2, self.N)
-        temp_hdg = self.arduino.lock_hdg
-        temp_angle = temp_hdg - self.arduino.heading
-        temp_angle = map_val(temp_angle, -(servo_angle / 2), (servo_angle / 2), -512, 512)
-        i_correct = int(round(temp_angle / resolution))
-
-        while True:
-            if i > (int(1024/resolution) + i_correct):
-                break
-            temp_angle = temp_hdg - self.arduino.heading
-            # temp_hdg = self.arduino.heading
-            temp_angle = map_val(temp_angle, -(servo_angle / 2), (servo_angle / 2), -512, 512)
-            i_correct = int(round(temp_angle / resolution))
-            # TODO Arduino HDG Overflow bei scan abschalten bzw in servo pos rein rechnen.
-            # TODO Check ob nachfuehrung in der fnc hier noetig ist da Ardu ja schon nachfuehrt
-            # TODO HDG Temp ( ausgleich HDG ) separat setzen. ( vor scan beginn )
-            res_hdg = overflow_value(i2, self.N)
-            log("", 9)
-            if loop:
-                log("loop True i: {}".format(i), 9)
-                # i = i + i_correct   # i_correct = max/min loop trigger
-                log("i_correct: {}".format(i_correct), 9)
-                # i = min(i, int(1024 / resolution))
-                # log("i min: {}".format(i), 9)
-                val = int(1024 + (i_correct / resolution) - i * resolution)
-                log("val: {}".format(val), 9)
-                i2 -= resolution
-            else:
-                log("loop False i: {}".format(i), 9)
-                # i = i - i_correct
-                log("i_correct: {}".format(i_correct), 9)
-                # i = min(i, int(1024 / resolution))
-                # log("i min: {}".format(i), 9)
-                val = int(i * resolution) + int(i_correct / resolution)
-                log("val: {}".format(val), 9)
-                i2 += resolution
-            # if (i * resolution) > 1023:
-            #    break
-            # val = val + int(self.N / 2)
-            # log("val cor: {}".format(val), 9)
-            i += 1
-            log("res_hdg: {}".format(res_hdg), 9)
-            self.arduino.set_servo(servo=1, val=val)
-            time.sleep(0.2)
-            temp = [0, 0, 0]
-            for n in range(lte_duration):     # Get average of scan values
-                while True:                 # Sometimes got None value back
-                    sigs = self.lte_stick.get_string()
-                    if all(sigs):
-                        temp = [temp[0] + sigs[0], temp[1] + sigs[1], temp[2] + sigs[2], sigs[3]]
-                        break
-                if not self.run_trigger:
-                    print("EM Break")
+    def get_lte_signals(self, hdg, resolution, duration=5):
+        temp = [0, 0, 0, 0]
+        for n in range(duration):  # Get average of scan values
+            while self.run_trigger:  # Sometimes got None value back
+                sigs = self.lte_stick.get_string()
+                if all(sigs):
+                    temp = [temp[0] + sigs[0], temp[1] + sigs[1], temp[2] + sigs[2], sigs[3]]
                     break
-            if not self.run_trigger:
-                print("EM Break")
-                break
-            for ind in range(3):
-                if res_hdg in self.scanres:
-                    temp[ind] = (self.scanres[res_hdg][(ind + 1)] + (temp[ind] / lte_duration)) / 2
-                else:
-                    temp[ind] = (temp[ind] / lte_duration)
 
-            # log("self.scanres[res_hdg] " + str([temp[3], temp[0], temp[1], temp[2]]) + "key " + str(res_hdg), 9)
-            #                           mode,    rsrq,    rsrp,    sirn
-            self.scanres[res_hdg] = [temp[3], temp[0], temp[1], temp[2]]
+        # range_begin = int(resolution / 2)
+        # temp_res = temp
+        # for z in range(resolution):
+        #     i = hdg - range_begin + z
+        #     i = overflow_value(i, self.N)
+        #     temp_res = temp
+
+        for ind in range(3):        # Calculate average for each founded value
+            if hdg in self.scanres:
+                temp[ind] = (self.scanres[hdg][(ind + 1)] + (temp[ind] / duration)) / 2
+            else:
+                temp[ind] = (temp[ind] / duration)
+
+        # log("self.scanres[res_hdg] " + str([temp[3], temp[0], temp[1], temp[2]]) + "key " + str(hdg), 9)
+        #                           mode,    rsrq,    rsrp,    sirn
+        self.scanres[hdg] = [temp[3], temp[0], temp[1], temp[2]]
 
     def scan_cycle(self, duration=2, timer=-1, resolution=32, lte_duration=7):
         print("Run Scan Thread")
@@ -153,8 +88,7 @@ class ScanSignals:
             ti = time.time()
             while self.run_trigger and self.arduino.run_trigger:
                 print("Timed Thread")
-                # self.scan_complete(resolution=resolution, loop=lo, lte_duration=lte_duration)
-                self.scan_active(resolution=resolution, loop=lo, lte_duration=lte_duration)
+                self.scan_active(resolution=resolution, loop=lo, duration=lte_duration)
                 if lo:
                     lo = False
                 else:
@@ -165,7 +99,6 @@ class ScanSignals:
             for n in range(duration):
                 if self.run_trigger and self.arduino.run_trigger:
                     print("Scan Nr: " + str(n))
-                    # self.scan_complete(resolution=resolution, loop=lo)
                     self.scan_active(resolution=resolution, loop=lo)
                     if lo:
                         lo = False

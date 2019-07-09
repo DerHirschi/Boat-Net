@@ -105,7 +105,7 @@ class ArduCom:
             while self.ack != -1:
                 pass
             self.ack = chr(int(buffer_in[3:]))
-            print('ACK-Recv :' + str(self.ack))
+            # print('ACK-Recv :' + str(self.ack))
         # Heading
         elif 'HDG' in buffer_in:
             self.heading = float(buffer_in[3:])

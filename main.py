@@ -81,14 +81,12 @@ if main.run_trigger:
     try:
         while main.run_trigger:
             if main.ardu.run_trigger:
-                main.scan.scan_cycle(resolution=64, lte_duration=7)
+                main.scan.scan_cycle(resolution=32, lte_duration=7)
                 # main.scan.plot_scan()
-                # threading.Thread(target=main.scan.plot_scan).start()
+                threading.Thread(target=main.scan.plot_scan).start()
                 # tmp = sorted(main.scan.scanres.keys())
                 # for key in tmp:
-                #     log("{} - {}".format(main.scan.scanres[key], key), 9)
-
-                # log("\n")
+                #     print("{} - {}".format(main.scan.scanres[key], key))
 
     except KeyboardInterrupt:
         main.run_trigger = False
