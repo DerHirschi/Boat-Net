@@ -3,7 +3,7 @@ from huawei_lte_api.AuthorizedConnection import AuthorizedConnection
 from huawei_lte_api.exceptions import ResponseErrorLoginCsfrException
 
 
-class LTEStick():
+class LTEStick:
     def __init__(self, stick_addi):
         self.client = None
         self.rsrq = -999

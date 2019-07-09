@@ -16,7 +16,7 @@ class ArduCom:
             if self.ser:
                 break
         if not self.ser:
-            raise Exception
+            raise ConnectionError
 
         # In Vars
         self.run_trigger = True     # Thread trigger .. Stop all Threads

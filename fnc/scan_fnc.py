@@ -21,7 +21,10 @@ class ScanSignals:
         self.theta = np.arange(0.0, 2 * np.pi, 2 * np.pi / self.N)
         self.radii = []
         for i in range(self.N):
-            self.radii.append(0)
+            self.radii.append(-1)
+        self.width = np.pi / 4 * np.random.rand(self.N)
+        for i in range(len(self.width)):
+            self.width[i] = 6 / self.N
 
     def get_hdg_diff_mapped(self):
         hdg = self.arduino.heading - self.arduino.lock_hdg
@@ -55,30 +58,40 @@ class ScanSignals:
             n += step
 
     def get_lte_signals(self, hdg, resolution, duration=5):
-        temp = [0, 0, 0, 0]
-        for n in range(duration):  # Get average of scan values
-            while self.run_trigger:  # Sometimes got None value back
+        max_e_count = 5                 # If 6 times is None in sigs
+        temp_sig = [0, 0, 0, 0]
+        for n in range(duration):       # Get average of scan values
+            e_count = 0
+            while self.run_trigger:     # Sometimes got None value back
                 sigs = self.lte_stick.get_string()
-                if all(sigs):
-                    temp = [temp[0] + sigs[0], temp[1] + sigs[1], temp[2] + sigs[2], sigs[3]]
+                if None in sigs:
+                    e_count += 1
+                elif e_count >= max_e_count:
+                    duration -= 1
+                    break
+                else:
+                    temp_sig = [temp_sig[0] + sigs[0], temp_sig[1] + sigs[1], temp_sig[2] + sigs[2], sigs[3]]
                     break
 
-        # range_begin = int(resolution / 2)
-        # temp_res = temp
-        # for z in range(resolution):
-        #     i = hdg - range_begin + z
-        #     i = overflow_value(i, self.N)
-        #     temp_res = temp
+        if duration == 0:
+            print("0 Signal !")
+            duration = 1
+            temp_sig = [-20, -100, 0, 0]
 
-        for ind in range(3):        # Calculate average for each founded value
-            if hdg in self.scanres:
-                temp[ind] = (self.scanres[hdg][(ind + 1)] + (temp[ind] / duration)) / 2
+        range_begin = int(resolution / 2)
+        for z in range(resolution - 1):
+            i = (hdg - range_begin + z)
+            i = overflow_value(i, self.N)
+            if i in self.scanres:       # Calculate average for each founded value
+                self.scanres[i] = [temp_sig[3],                                                      # Mode
+                                   round(((self.scanres[i][1] + (temp_sig[0] / duration)) / 2), 2),  # RSRQ
+                                   round(((self.scanres[i][2] + (temp_sig[1] / duration)) / 2), 2),  # RSRP
+                                   round(((self.scanres[i][3] + (temp_sig[2] / duration)) / 2), 2)]  # SIRN
             else:
-                temp[ind] = (temp[ind] / duration)
-
-        # log("self.scanres[res_hdg] " + str([temp[3], temp[0], temp[1], temp[2]]) + "key " + str(hdg), 9)
-        #                           mode,    rsrq,    rsrp,    sirn
-        self.scanres[hdg] = [temp[3], temp[0], temp[1], temp[2]]
+                self.scanres[i] = [temp_sig[3],                     # Mode
+                                   (temp_sig[0] / duration),        # RSRQ
+                                   (temp_sig[1] / duration),        # RSRP
+                                   (temp_sig[2] / duration)]        # SIRN
 
     def scan_cycle(self, duration=2, timer=-1, resolution=32, lte_duration=7):
         print("Run Scan Thread")
@@ -126,31 +139,50 @@ class ScanSignals:
 
         return res, key
 
-    def plot_scan(self):
+    def plot_scan(self, mode=0):
+        # Mode 1 = Plot Signal 'rsrq'
+        # Mode 2 = Plot Signal 'rsrp'
+        # Mode 3 = Plot Signal 'sinr'
         # force square figure and square axes looks better for polar, IMO
-        fig = plt.figure(figsize=(8, 8))
-        ax = fig.add_axes([0.1, 0.1, 0.8, 0.8], polar=True)
         scanres = self.scanres
+        radii = self.radii
+        width = self.width
 
-        tmp = 0
-        n = 0
-        for i in range(self.N):
-            if len(scanres) == n:
-                tmp = 0
-            elif i in scanres:
-                tmp = 20 + scanres[i][1]
-                n += 1
+        def get_mode_config(mo):
+            if mo == 1:
+                f = 20.
+                fc = f
+                return f, fc, 'rsrq.png', mo
+            elif mo == 2:
+                f = 120.
+                fc = f
+                return f, fc, 'rsrp.png', mo
+            elif mo == 3:
+                f = 0.
+                fc = 20
+                return f, fc, 'sinr.png', mo
 
-            self.radii[i] = tmp
+        conf = []
+        if mode:
+            conf.append(get_mode_config(mode))
+        else:
+            for c in range(3):
+                conf.append(get_mode_config((c + 1)))
 
-        width = np.pi / 4 * np.random.rand(self.N)
-        for i in range(len(width)):
-            width[i] = 6 / self.N
-        bars = ax.bar(self.theta, self.radii, width=width, bottom=0.0)
-        for r, bar in zip(self.radii, bars):
-            bar.set_facecolor(cm.jet(r / 20.))
-            bar.set_alpha(0.5)
+        for con in conf:
+            n_null, f_colo, o_name, mode = con
 
-        plt.savefig('/var/www/html/foo.png')
+            for i in range(self.N):
+                if i in scanres:
+                    radii[i] = n_null + scanres[i][mode]
 
-        plt.close(fig)
+            fig = plt.figure(figsize=(12, 12))
+            ax = fig.add_axes([0.1, 0.1, 0.8, 0.8], polar=True)
+            bars = ax.bar(self.theta, radii, width=width, bottom=0.0)
+            for r, bar in zip(radii, bars):
+                bar.set_facecolor(cm.jet(r / f_colo))
+                bar.set_alpha(0.5)
+
+            plt.savefig('/var/www/html/' + o_name)
+
+            plt.close(fig)

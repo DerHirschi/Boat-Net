@@ -17,7 +17,7 @@ class Main:
             self.ardu = self.init_ardu()
             print("Arduino init")
             self.run_trigger = True
-        except ConnectionAbortedError:
+        except ConnectionError:
             print("Arduino failed")
 
         if self.run_trigger:
@@ -58,8 +58,8 @@ class Main:
     def init_ardu(self):
         try:
             return ArduCom()
-        except ConnectionAbortedError:
-            raise ConnectionAbortedError
+        except (ConnectionError, ConnectionAbortedError) as e:
+            raise ConnectionError('Connection Error') from e
 
     def init_lte(self, modem):
         try:
@@ -77,21 +77,32 @@ if main.run_trigger:
 
     # main.ardu.set_servo(val=200)
     main.ardu.set_gimbal_lock_hdg()
+    main.ardu.set_servo(val=512)
     main.ardu.toggle_servos(True)
     try:
         while main.run_trigger:
             if main.ardu.run_trigger:
-                main.scan.scan_cycle(resolution=32, lte_duration=7)
-                # main.scan.plot_scan()
+                main.scan.scan_cycle(resolution=64, lte_duration=7)
+                # main.scan.plot_scan(1)
+                # main.scan.plot_scan(2)
+                # main.scan.plot_scan(3)
                 threading.Thread(target=main.scan.plot_scan).start()
+                # threading.Thread(target=main.scan.plot_scan, args=(1, )).start()
+                # threading.Thread(target=main.scan.plot_scan, args=(2, )).start()
+                # threading.Thread(target=main.scan.plot_scan, args=(3, )).start()
                 # tmp = sorted(main.scan.scanres.keys())
                 # for key in tmp:
                 #     print("{} - {}".format(main.scan.scanres[key], key))
 
     except KeyboardInterrupt:
+        main.ardu.set_servo(val=512, speed=150)
+        time.sleep(2)
         main.run_trigger = False
+        print("Wird beendet ... ")
 
-    main.run_trigger = False
+    # main.ardu.set_servo(val=512, speed=150)
+    # time.sleep(2)
+    # main.run_trigger = False
     # log(main.scan.scanres, 9)
     # tmp = sorted(main.scan.scanres.keys())
     # for key in tmp:
