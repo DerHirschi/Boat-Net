@@ -140,6 +140,9 @@ class ScanSignals:
         return res, key
 
     def plot_scan(self, mode=0):
+        # TODO Werte auf plot axe vermitteln
+        # TODO Werte glaetten ( evtl )
+        # TODO Plot Werte fuer 3G Mode anpassen
         # Mode 1 = Plot Signal 'rsrq'
         # Mode 2 = Plot Signal 'rsrp'
         # Mode 3 = Plot Signal 'sinr'
@@ -148,26 +151,19 @@ class ScanSignals:
         radii = self.radii
         width = self.width
 
-        def get_mode_config(mo):
-            if mo == 1:
-                f = 20.
-                fc = f
-                return f, fc, 'rsrq.png', mo
-            elif mo == 2:
-                f = 120.
-                fc = f
-                return f, fc, 'rsrp.png', mo
-            elif mo == 3:
-                f = 0.
-                fc = 20
-                return f, fc, 'sinr.png', mo
+        def _get_mode_config(mo):
+            return {    # Null_val, colorrange, filename, mode
+                1: (20., 20., 'rsrq.png', mo),
+                2: (120., 120., 'rsrp.png', mo),
+                3: (0., 20., 'sinr.png', mo)
+            }[mo]
 
         conf = []
         if mode:
-            conf.append(get_mode_config(mode))
+            conf.append(_get_mode_config(mode))
         else:
             for c in range(3):
-                conf.append(get_mode_config((c + 1)))
+                conf.append(_get_mode_config((c + 1)))
 
         for con in conf:
             n_null, f_colo, o_name, mode = con

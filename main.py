@@ -80,9 +80,14 @@ if main.run_trigger:
     main.ardu.set_servo(val=512)
     main.ardu.toggle_servos(True)
     try:
+    # for m in [2, 3, 0]:
+    #     main.lte.set_net_mode(m)
+    #     print("Netmode {} gesetzt". format(m))
+    #     try:
+    #         time.sleep(40)
         while main.run_trigger:
             if main.ardu.run_trigger:
-                main.scan.scan_cycle(resolution=64, lte_duration=7)
+                main.scan.scan_cycle(resolution=32, lte_duration=7)
                 # main.scan.plot_scan(1)
                 # main.scan.plot_scan(2)
                 # main.scan.plot_scan(3)
@@ -95,10 +100,12 @@ if main.run_trigger:
                 #     print("{} - {}".format(main.scan.scanres[key], key))
 
     except KeyboardInterrupt:
-        main.ardu.set_servo(val=512, speed=150)
+        print("Wird beendet ... ")
+        main.ardu.set_servo(val=512, speed=150, new_gimbal_lock=True)
         time.sleep(2)
         main.run_trigger = False
-        print("Wird beendet ... ")
+
+
 
     # main.ardu.set_servo(val=512, speed=150)
     # time.sleep(2)

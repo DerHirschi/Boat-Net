@@ -1,5 +1,7 @@
+import time
 from huawei_lte_api.Client import Client
 from huawei_lte_api.AuthorizedConnection import AuthorizedConnection
+from huawei_lte_api.exceptions import ResponseErrorException
 from huawei_lte_api.exceptions import ResponseErrorLoginCsfrException
 
 
@@ -45,3 +47,47 @@ class LTEStick:
             self.rsrp = -999
 
         return self.rsrq, self.rsrp, self.sinr, mode
+
+    def reboot(self):
+        try:        # for E 3372
+            self.client.device.reboot()
+        except ResponseErrorException:
+            print('Rebooting LTE-Modem ...')
+            time.sleep(20)
+            return True
+        except Exception:
+            raise ConnectionError
+        return False
+
+    def get_net_mode(self):
+        return self.client.net.net_mode()
+
+    def get_net_mode_list(self):
+        return self.client.net.net_mode_list()
+
+    def set_net_mode(self, net_mode=4):
+        # net_mode
+        # 0 = auto
+        # 1 = 2G
+        # 2 = 3G
+        # 3 = 4G
+        # 4 = best available mode
+        mode_list = self.get_net_mode_list()
+        available_modes = mode_list['AccessList']['Access']
+        if '02' in available_modes or '03' in available_modes or net_mode == 0:
+            lte_band = mode_list['LTEBandList']['LTEBand'][0]['Value']
+            net_band = mode_list['LTEBandList']['LTEBand'][1]['Value']
+            if net_mode == 4:
+                net_mode = available_modes[-1:]
+
+            net_mode = '0' + str(net_mode)
+            try:    # E 3372
+                self.client.net.set_net_mode(networkmode=net_mode, networkband=net_band, lteband=lte_band)
+            except ResponseErrorException:
+                print("New Net-Mode set: " + str(net_mode))
+                return net_mode
+            except Exception:
+                raise ConnectionError
+            return False
+        else:
+            return False
