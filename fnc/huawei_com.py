@@ -75,9 +75,6 @@ class LTEStick:
 
     def get_plmn_list(self):
         return self.client.net.plmn_list()['Networks']['Network']
-        # for i in plmn_list:
-        #     print("Name : {} - Num: {} - Rat: {} - Index: {} - State: {}".format(i['FullName'], i['Numeric'], i['Rat'],
-        #                                                                          i['Index'], i['State']))
 
     def set_net_mode(self, net_mode=4):
         # net_mode
@@ -87,7 +84,6 @@ class LTEStick:
         # 3 = 4G
         # 4 = best available mode
         mode_list = self.get_net_mode_list()
-        # print(mode_list)
         available_modes = mode_list['AccessList']['Access']
         if '02' in available_modes or '03' in available_modes or net_mode == 0:
             lte_band = mode_list['LTEBandList']['LTEBand'][0]['Value']

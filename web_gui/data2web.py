@@ -1,11 +1,31 @@
+import numpy as np
+import matplotlib.cm as cm
+import matplotlib.pyplot as plt
+import shutil
+from etc.var import overflow_value
+from etc.log import log
 
 
 class Data2Web:
-    def __init__(self, auto_loop=True):
+    def __init__(self, scan_cl, auto_loop=True):
         self.run_trigger = False
-        pass
-    '''
-    def plot_scan(self, net_mode=2, signal_type=0):
+        self.scan = scan_cl
+        # HTML Location
+        self.html_root = '/var/www/html/'
+        self.html_images = '/var/www/html/assets/images/'
+        # Signal Plot
+        self.N = self.scan.N
+        self.val_range = self.scan.val_range
+        self.theta = np.arange(0.0, 2 * np.pi, 2 * np.pi / self.N)
+        self.center = int((self.N - self.val_range) / 2)
+        self.radii = []
+        self.width = np.pi / 4 * np.random.rand(self.N)
+        for i in range(self.N):
+            self.radii.append(-1)           # -1 to show unscanned array in plot
+        for i in range(len(self.width)):
+            self.width[i] = 6 / self.N
+
+    def plot_lte_signals(self, net_mode=2, signal_type=0):
         # TODO Werte glaetten ( evtl )
         # TODO Web Ausgabe in extra Class, extra thread ..
 
@@ -16,8 +36,8 @@ class Data2Web:
         # net_mode 2 = 3G
         # net_mode 3 = 4G
         scanres = {
-            2: self.scanres3G,
-            3: self.scanres4G
+            2: self.scan.scanres3G,
+            3: self.scan.scanres4G
         }[net_mode]
         radii = self.radii
         width = self.width
@@ -49,9 +69,13 @@ class Data2Web:
             for i in range(self.N):
                 if i in scanres:
                     cor_i = overflow_value((i + self.center), self.N)
-                    _res = round((n_null + scanres[i][signal_type]), 2)
-                    if _res > max_ax:
-                        max_ax = _res
+                    _res = scanres[i][signal_type]
+                    if _res is None:
+                        _res = 0
+                    else:
+                        _res = round((n_null + _res), 2)
+                        if _res > max_ax:
+                            max_ax = _res
                     radii[cor_i] = _res
                     # log("radi> {} - i {} - sig {}".format(radii[cor_i], i, signal_type), 9)
 
@@ -70,8 +94,9 @@ class Data2Web:
             ax.set_rmin(-1)
             ax.set_rmax(max_ax)
 
-            plt.savefig('/var/www/html/assets/images/' + o_name + '.png')
+            plt.savefig(self.html_images + o_name + '.png')
             plt.close(fig)
-            shutil.copy('/var/www/html/assets/images/' + o_name + '.png',
-                        '/var/www/html/assets/images/' + o_name + '-800x800' + '.png')
-    '''
+            shutil.copy(self.html_images + o_name + '.png',
+                        self.html_images + o_name + '-800x800' + '.png')
+
+

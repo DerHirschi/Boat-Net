@@ -1,12 +1,8 @@
 import time
 import threading
-import numpy as np
-import matplotlib.cm as cm
-from matplotlib import pyplot as plt
 from etc.var import map_val
 from etc.var import overflow_value
 from etc.log import *
-import shutil
 
 
 class ScanSignals:
@@ -21,14 +17,6 @@ class ScanSignals:
         # Plot Init #
         self.val_range = 1023
         self.N = int(self.val_range / (self.arduino.servo_max_angle - self.arduino.servo_min_angle) * 360)
-        self.theta = np.arange(0.0, 2 * np.pi, 2 * np.pi / self.N)
-        self.radii = []
-        self.center = int((self.N - self.val_range) / 2)
-        for i in range(self.N):
-            self.radii.append(-1)
-        self.width = np.pi / 4 * np.random.rand(self.N)
-        for i in range(len(self.width)):
-            self.width[i] = 6 / self.N
 
     def get_plmn_list(self):
         plmn_list = self.lte_stick.get_plmn_list()
@@ -41,12 +29,13 @@ class ScanSignals:
         temp_sig = [0, 0, 0, 0]
         for n in range(duration):       # Get average of scan values
             sigs = self.lte_stick.get_string()
-            if None not in sigs:
-                temp_sig = [temp_sig[0] + sigs[0], temp_sig[1] + sigs[1], temp_sig[2] + sigs[2], sigs[3]]
-            else:
-                if sigs[3]:
-                    temp_sig[3] = sigs[3]
-                duration -= 1
+            if sigs:
+                if None not in sigs:
+                    temp_sig = [temp_sig[0] + sigs[0], temp_sig[1] + sigs[1], temp_sig[2] + sigs[2], sigs[3]]
+                else:
+                    if sigs[3]:
+                        temp_sig[3] = sigs[3]
+                    duration -= 1
 
         if temp_sig[3] in [2, 7]:
             if duration != 0:
@@ -189,79 +178,3 @@ class ScanSignals:
                 res, key = self.scanres3G[i], i
 
         return res, key
-
-    def plot_scan(self, net_mode=2, signal_type=0):
-        # TODO Werte glaetten ( evtl )
-        # TODO Web Ausgabe in extra Class, extra thread ..
-
-        # signal_type 1 = Plot Signal 'rsrq'
-        # signal_type 2 = Plot Signal 'rsrp'
-        # signal_type 3 = Plot Signal 'sinr'
-        # signal_type 0 = Plot for all Signals
-        # net_mode 2 = 3G
-        # net_mode 3 = 4G
-        scanres = {
-            2: self.scanres3G,
-            3: self.scanres4G
-        }[net_mode]
-        radii = self.radii
-        width = self.width
-
-        def _get_mode_config(mo, n_mo):
-            return {
-                2: {    # Null_val, colorrange, filename, mode
-                    1: (20., 10, '3gecio-800x800', (mo - 1)),
-                    2: (120., 60, '3grscp-800x800', (mo - 1)),
-                    3: (110., 40, '3grssi-800x800', (mo - 1))
-                }[mo],
-                3: {    # Null_val, colorrange, filename, mode
-                    1: (20., 10, '4grsrq-800x800', (mo - 1)),
-                    2: (100., 20, '4grsrp-800x800', (mo - 1)),
-                    3: (0., 20, '4gsinr-800x800', (mo - 1))
-                }[mo]
-            }[n_mo]
-        conf = []
-        if signal_type:
-            conf.append(_get_mode_config(signal_type, net_mode))
-        else:
-            for c in range(3):
-                conf.append(_get_mode_config((c + 1), net_mode))
-
-        for con in conf:
-            n_null, f_colo, o_name, signal_type = con
-            # log("Start {}".format(con))
-            max_ax = 0
-            for i in range(self.N):
-                if i in scanres:
-                    cor_i = overflow_value((i + self.center), self.N)
-                    _res = scanres[i][signal_type]
-                    if _res is None:
-                        _res = 0
-                    else:
-                        _res = round((n_null + _res), 2)
-                        if _res > max_ax:
-                            max_ax = _res
-                    radii[cor_i] = _res
-                    # log("radi> {} - i {} - sig {}".format(radii[cor_i], i, signal_type), 9)
-
-            fig = plt.figure(figsize=(8, 8))
-            ax = fig.add_axes([0.1, 0.1, 0.8, 0.8], polar=True)
-            # max_foo = int(max(radii))
-            # c = np.ones((max_foo, max_foo)) + np.arange(max_foo).reshape(max_foo, 1)
-            # ap = ax.pcolormesh(c)
-            # ax.set_alpha(0.2)
-            # plt.colorbar(ap)
-            bars = ax.bar(self.theta, radii, width=width, bottom=0.0)
-            for r, bar in zip(radii, bars):
-                bar.set_facecolor(cm.jet(r / f_colo))
-                bar.set_alpha(0.9)
-
-            ax.set_rmin(-1)
-            ax.set_rmax(max_ax)
-
-            plt.savefig('/var/www/html/assets/images/' + o_name + '.png')
-            plt.close(fig)
-            shutil.copy('/var/www/html/assets/images/' + o_name + '.png',
-                        '/var/www/html/assets/images/' + o_name + '-800x800' + '.png')
-
-
