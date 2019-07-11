@@ -102,8 +102,10 @@ if main.run_trigger:
                 # main.scan.plot_scan(1)
                 # main.scan.plot_scan(2)
                 # main.scan.plot_scan(3)
-            threading.Thread(target=main.scan.plot_scan, args=(2, )).start()
-            threading.Thread(target=main.scan.plot_scan, args=(3, )).start()
+            # threading.Thread(target=main.scan.plot_scan, args=(2, )).start()
+            # threading.Thread(target=main.scan.plot_scan, args=(3, )).start()
+            main.scan.plot_scan(2)
+            main.scan.plot_scan(3)
             # tmp = sorted(main.scan.scanres3G.keys())
             # for key in tmp:
             #     print("scanres3G - {} - {}".format(main.scan.scanres3G[key], key))
