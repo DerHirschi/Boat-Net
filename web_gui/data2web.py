@@ -2,6 +2,7 @@ import numpy as np
 import matplotlib.cm as cm
 import matplotlib.pyplot as plt
 import shutil
+import config
 from etc.var import overflow_value
 from etc.log import log
 
@@ -11,8 +12,7 @@ class Data2Web:
         self.run_trigger = False
         self.scan = scan_cl
         # HTML Location
-        self.html_root = '/var/www/html/'
-        self.html_images = '/var/www/html/assets/images/'
+        self.html_images = config.html_images
         # Signal Plot
         self.N = self.scan.N
         self.val_range = self.scan.val_range
@@ -20,10 +20,29 @@ class Data2Web:
         self.center = int((self.N - self.val_range) / 2)
         self.radii = []
         self.width = np.pi / 4 * np.random.rand(self.N)
+        f = open(config.html_root + config.html_lte_page.replace('.html', '.ba'), 'r')
+        self.html_str_lte_page = f.read()
+        f.close()
         for i in range(self.N):
             self.radii.append(-1)           # -1 to show unscanned array in plot
         for i in range(len(self.width)):
             self.width[i] = 6 / self.N
+
+    def write_plmn_list2web(self, get_new_plmn=False):
+        if get_new_plmn:
+            self.scan.get_plmn_list()
+        plmn = self.scan.plmn_list
+        html_str = self.html_str_lte_page
+        i = 0
+        for st in ['dummy_netze1', 'dummy_netze2', 'dummy_netze3']:
+            if i < len(plmn):
+                html_str = html_str.replace(st, plmn[i])
+            else:
+                html_str = html_str.replace(st, '')
+            i += 1
+        f = open(config.html_root + config.html_lte_page, 'w')
+        f.write(html_str)
+        f.close()
 
     def plot_lte_signals(self, net_mode=2, signal_type=0):
         # TODO Werte glaetten ( evtl )

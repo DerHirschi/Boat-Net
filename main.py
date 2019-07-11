@@ -19,6 +19,7 @@ class Main:
         self.lte = None
         self.scan = None
         self.web = None
+        # Arduino
         try:
             self.ardu = self.init_ardu()
             print("Arduino init")
@@ -27,16 +28,18 @@ class Main:
             print("Arduino failed")
 
         if self.run_trigger:
+            # LTE
             try:
-                self.lte = self.init_lte(modem)
                 print("LTE init")
+                self.lte = self.init_lte(modem)
             except ConnectionError:
                 print("LTE failed")
                 self.run_trigger = False
-
+            # Scan & Web
             if self.run_trigger:
                 print("Scan class init")
                 self.scan = self.init_scan()
+                self.scan.get_plmn_list()
                 self.web = Data2Web(self.scan)
                 threading.Thread(target=self.reinit_check).start()
 
@@ -101,6 +104,7 @@ if main.run_trigger:
 
         # while main.run_trigger:
         if main.ardu.run_trigger:
+            main.web.write_plmn_list2web()
             try:
                 main.scan.scan_cycle(resolution=32, lte_duration=5, duration=4, net_mode=0)
             except ConnectionError:

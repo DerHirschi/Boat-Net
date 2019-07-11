@@ -45,3 +45,7 @@ for bme2800.py additional:
 - mpld3
 - smbus
 - gps
+
+
+
+#     a lot to do !!

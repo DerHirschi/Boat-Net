@@ -24,7 +24,7 @@ class LTEStick:
         else:
             return int(value.split('d')[0])
 
-    def get_string(self, trys=8, sleep=0.25):
+    def get_string(self, trys=2, sleep=0.5):
         mode = None
         for e in range(trys):
             signal_info = self.client.device.signal()
