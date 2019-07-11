@@ -13,6 +13,7 @@ class Main:
         self.ardu = None
         self.lte = None
         self.scan = None
+        self.web = None
         try:
             self.ardu = self.init_ardu()
             print("Arduino init")
@@ -90,8 +91,10 @@ if main.run_trigger:
         # while main.run_trigger:
         if main.ardu.run_trigger:
             try:
-                main.scan.scan_cycle(resolution=32, lte_duration=7, plot=True)
+                main.scan.scan_cycle(resolution=32, lte_duration=7, duration=4)
             except ConnectionError:
+            # while True:
+            #     print(main.lte.get_string())
                 print("Wird beendet ... Connection Error LTE")
                 main.ardu.set_servo(val=512, speed=150, new_gimbal_lock=True)
                 time.sleep(2)
@@ -99,15 +102,20 @@ if main.run_trigger:
                 # main.scan.plot_scan(1)
                 # main.scan.plot_scan(2)
                 # main.scan.plot_scan(3)
-            # threading.Thread(target=main.scan.plot_scan).start()
+            threading.Thread(target=main.scan.plot_scan, args=(2, )).start()
+            threading.Thread(target=main.scan.plot_scan, args=(3, )).start()
             # tmp = sorted(main.scan.scanres3G.keys())
             # for key in tmp:
             #     print("scanres3G - {} - {}".format(main.scan.scanres3G[key], key))
             # tmp = sorted(main.scan.scanres4G.keys())
             # for key in tmp:
             #     print("scanres4G - {} - {}".format(main.scan.scanres4G[key], key))
-            print("Wird beendet ... ")
             main.ardu.set_servo(val=512, speed=150, new_gimbal_lock=True)
+            main.scan.get_plmn_list()
+            print("")
+            print(main.scan.plmn_list)
+            print("")
+            print("Wird beendet ... ")
             time.sleep(2)
             main.run_trigger = False
     except KeyboardInterrupt:

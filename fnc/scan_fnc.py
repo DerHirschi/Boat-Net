@@ -15,6 +15,7 @@ class ScanSignals:
         self.arduino = ardu
         self.scanres3G = {}
         self.scanres4G = {}
+        self.plmn_list = []
         self.null_hdg = self.arduino.heading    # Flag has to set if delete self.scanres
         self.run_trigger = False                # Loop stopper
         # Plot Init #
@@ -28,6 +29,50 @@ class ScanSignals:
         self.width = np.pi / 4 * np.random.rand(self.N)
         for i in range(len(self.width)):
             self.width[i] = 6 / self.N
+
+    def get_plmn_list(self):
+        plmn_list = self.lte_stick.get_plmn_list()
+        res = []
+        for net in plmn_list:
+            res.append(net['FullName'])
+        self.plmn_list = res
+
+    def get_lte_signals_avg(self, hdg, resolution, duration=5):
+        temp_sig = [0, 0, 0, 0]
+        for n in range(duration):       # Get average of scan values
+            sigs = self.lte_stick.get_string()
+            if None not in sigs:
+                temp_sig = [temp_sig[0] + sigs[0], temp_sig[1] + sigs[1], temp_sig[2] + sigs[2], sigs[3]]
+            else:
+                if sigs[3]:
+                    temp_sig[3] = sigs[3]
+                duration -= 1
+
+        if temp_sig[3] in [2, 7]:
+            if duration != 0:
+                range_begin = int(resolution / 2)
+                temp_res = {
+                    2: self.scanres3G,
+                    7: self.scanres4G
+                }[temp_sig[3]]
+
+                for z in range(resolution - 1):
+                    i = (hdg - range_begin + z)
+                    i = overflow_value(i, self.N)
+                    if i in temp_res:       # Calculate average for each founded value
+                        for ind in range(3):
+                            temp_res[i][ind] = round(((temp_res[i][ind] + (temp_sig[ind] / duration)) / 2), 2)
+                    else:
+                        temp_res[i] = [round((temp_sig[0] / duration), 2),
+                                       round((temp_sig[1] / duration), 2),
+                                       round((temp_sig[2] / duration), 2)]
+            else:
+                temp_res = [None, None, None, temp_sig[3]]
+
+            if temp_sig[3] == 2:
+                self.scanres3G = temp_res
+            elif temp_sig[3] == 7:
+                self.scanres4G = temp_res
 
     def get_hdg_diff_mapped(self):
         hdg = self.arduino.heading - self.arduino.lock_hdg
@@ -57,55 +102,10 @@ class ScanSignals:
                     break
             self.set_servo_hdg(val)
             time.sleep(0.1)
-            self.get_lte_signals(duration=duration, hdg=val, resolution=resolution)
+            self.get_lte_signals_avg(duration=duration, hdg=val, resolution=resolution)
             n += step
 
-    def get_lte_signals(self, hdg, resolution, duration=5):
-        max_e_count = 7                 # If 6 times is None in sigs
-        temp_sig = [0, 0, 0, 0]
-        for n in range(duration):       # Get average of scan values
-            e_count = 0
-            while self.run_trigger:     # Sometimes got None value back
-                sigs = self.lte_stick.get_string()
-                if None in sigs:
-                    e_count += 1
-                elif e_count >= max_e_count:
-
-                    duration -= 1
-                    break
-                else:
-                    temp_sig = [temp_sig[0] + sigs[0], temp_sig[1] + sigs[1], temp_sig[2] + sigs[2], sigs[3]]
-                    break
-
-        if duration == 0:
-            log("0 Signal !", 9)
-            duration = 1
-            temp_sig = [-20, -100, 0, 0]
-
-        if temp_sig[3] in [2, 7]:
-            range_begin = int(resolution / 2)
-            temp_res = {
-                2: self.scanres3G,
-                7: self.scanres4G
-            }[temp_sig[3]]
-
-            for z in range(resolution - 1):
-                i = (hdg - range_begin + z)
-                i = overflow_value(i, self.N)
-                if i in temp_res:       # Calculate average for each founded value
-                    for ind in range(3):
-                        temp_res[i][ind] = round(((temp_res[i][ind] + (temp_sig[ind] / duration)) / 2), 2)
-                else:
-                    temp_res[i] = [round((temp_sig[0] / duration), 2),
-                                   round((temp_sig[1] / duration), 2),
-                                   round((temp_sig[2] / duration), 2)]
-
-            if temp_sig[3] == 2:
-                self.scanres3G = temp_res
-            elif temp_sig[3] == 7:
-                self.scanres4G = temp_res
-
-    def scan_cycle(self, duration=2, timer=-1, resolution=32, lte_duration=7, net_mode=0, plot=False):
+    def scan_cycle(self, duration=2, timer=-1, resolution=32, lte_duration=7, net_mode=0):
         # net_mode 0: scant 3G u 4G
         log("Run Scan Thread", 9)
         lo = True
@@ -128,9 +128,6 @@ class ScanSignals:
                     lo = False
                 else:
                     z += 1
-                    if plot:
-                        print("PLOT")
-                        threading.Thread(target=self.plot_scan, args=(net_mode,)).start()
                     lo = True
 
                 if net_mode_switch and z == 1:
@@ -158,10 +155,6 @@ class ScanSignals:
                 else:
                     lo = True
                     z += 1
-                    if plot:
-                        log("PLOT", 9)
-                        threading.Thread(target=self.plot_scan, args=(net_mode,)).start()
-                        # self.plot_scan(net_mode)
 
                 if net_mode_switch and z == 1 and (duration - 1) != n:
                     z = 0
@@ -241,9 +234,13 @@ class ScanSignals:
             for i in range(self.N):
                 if i in scanres:
                     cor_i = overflow_value((i + self.center), self.N)
-                    _res = round((n_null + scanres[i][signal_type]), 2)
-                    if _res > max_ax:
-                        max_ax = _res
+                    _res = scanres[i][signal_type]
+                    if _res is None:
+                        _res = 0
+                    else:
+                        _res = round((n_null + _res), 2)
+                        if _res > max_ax:
+                            max_ax = _res
                     radii[cor_i] = _res
                     # log("radi> {} - i {} - sig {}".format(radii[cor_i], i, signal_type), 9)
 
@@ -266,4 +263,5 @@ class ScanSignals:
             plt.close(fig)
             shutil.copy('/var/www/html/assets/images/' + o_name + '.png',
                         '/var/www/html/assets/images/' + o_name + '-800x800' + '.png')
+
 

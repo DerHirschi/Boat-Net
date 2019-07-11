@@ -24,28 +24,37 @@ class LTEStick:
         else:
             return int(value.split('d')[0])
 
-    def get_string(self):
-        signal_info = self.client.device.signal()
-        mode = self.get_int(signal_info["mode"])
-        # lte_quality_signal_dict = { //4G
-        #                   'rsrp': (-80, -90, -100),
-        #                   'rsrq': (-10, -15, -20),
-        #                   'sinr': (20, 13, 0),
-        #                  }
-        if mode == 7:  # 4G
-            self.rsrq = self.get_int(signal_info["rsrq"])
-            self.rsrp = self.get_int(signal_info["rsrp"])
-            self.sinr = self.get_int(signal_info["sinr"])
-        elif mode == 2:  # 3G
-            self.rsrq = self.get_int(signal_info["ecio"])
-            self.sinr = self.get_int(signal_info["rssi"])
-            self.rsrp = self.get_int(signal_info["rscp"])
+    def get_string(self, trys=8, sleep=0.25):
+        mode = None
+        for e in range(trys):
+            signal_info = self.client.device.signal()
+            mode = self.get_int(signal_info["mode"])
+            # lte_quality_signal_dict = { //4G
+            #                   'rsrp': (-80, -90, -100),
+            #                   'rsrq': (-10, -15, -20),
+            #                   'sinr': (20, 13, 0),
+            #                  }
+            if mode == 7:  # 4G
+                self.rsrq = self.get_int(signal_info["rsrq"])
+                self.rsrp = self.get_int(signal_info["rsrp"])
+                self.sinr = self.get_int(signal_info["sinr"])
+            elif mode == 2:  # 3G
+                self.rsrq = self.get_int(signal_info["ecio"])
+                self.sinr = self.get_int(signal_info["rssi"])
+                self.rsrp = self.get_int(signal_info["rscp"])
+            else:
+                self.rsrq = None
+                self.sinr = None
+                self.rsrp = None
+                mode = None
+            if None not in (self.rsrq, self.rsrp, self.sinr, mode):
+                return self.rsrq, self.rsrp, self.sinr, mode
+            else:
+                time.sleep(sleep)
+        if mode:
+            return None, None, None, mode
         else:
-            self.rsrq = -999
-            self.sinr = -999
-            self.rsrp = -999
-
-        return self.rsrq, self.rsrp, self.sinr, mode
+            return None
 
     def reboot(self):
         try:        # for E 3372
@@ -65,10 +74,10 @@ class LTEStick:
         return self.client.net.net_mode_list()
 
     def get_plmn_list(self):
-        plmn_list = self.client.net.plmn_list()['Networks']['Network']
-        for i in plmn_list:
-            print("Name : {} - Num: {} - Rat: {} - Index: {} - State: {}".format(i['FullName'], i['Numeric'], i['Rat'],
-                                                                                 i['Index'], i['State']))
+        return self.client.net.plmn_list()['Networks']['Network']
+        # for i in plmn_list:
+        #     print("Name : {} - Num: {} - Rat: {} - Index: {} - State: {}".format(i['FullName'], i['Numeric'], i['Rat'],
+        #                                                                          i['Index'], i['State']))
 
     def set_net_mode(self, net_mode=4):
         # net_mode
@@ -93,8 +102,9 @@ class LTEStick:
                 e_c = 0
                 while self.client.device.signal()['mode'] is None:
                     if e_c > 10:
-                        print("Error.. None Net Mode after changing Net Mode ..")
-                        raise ConnectionError
+                        print("Error.. None Net Mode after changing Net Mode .. No NET ??")
+                        # raise ConnectionError
+                        break
                     time.sleep(1)
                     e_c += 1
 
