@@ -2,7 +2,6 @@ import time
 from huawei_lte_api.Client import Client
 from huawei_lte_api.AuthorizedConnection import AuthorizedConnection
 from huawei_lte_api.exceptions import ResponseErrorException
-from huawei_lte_api.exceptions import ResponseErrorLoginCsfrException
 
 
 class LTEStick:
@@ -33,11 +32,11 @@ class LTEStick:
         #                   'rsrq': (-10, -15, -20),
         #                   'sinr': (20, 13, 0),
         #                  }
-        if (mode == 7):  # 4G
+        if mode == 7:  # 4G
             self.rsrq = self.get_int(signal_info["rsrq"])
             self.rsrp = self.get_int(signal_info["rsrp"])
             self.sinr = self.get_int(signal_info["sinr"])
-        elif (mode == 2):  # 3G
+        elif mode == 2:  # 3G
             self.rsrq = self.get_int(signal_info["ecio"])
             self.sinr = self.get_int(signal_info["rssi"])
             self.rsrp = self.get_int(signal_info["rscp"])
@@ -65,6 +64,12 @@ class LTEStick:
     def get_net_mode_list(self):
         return self.client.net.net_mode_list()
 
+    def get_plmn_list(self):
+        plmn_list = self.client.net.plmn_list()['Networks']['Network']
+        for i in plmn_list:
+            print("Name : {} - Num: {} - Rat: {} - Index: {} - State: {}".format(i['FullName'], i['Numeric'], i['Rat'],
+                                                                                 i['Index'], i['State']))
+
     def set_net_mode(self, net_mode=4):
         # net_mode
         # 0 = auto
@@ -73,6 +78,7 @@ class LTEStick:
         # 3 = 4G
         # 4 = best available mode
         mode_list = self.get_net_mode_list()
+        # print(mode_list)
         available_modes = mode_list['AccessList']['Access']
         if '02' in available_modes or '03' in available_modes or net_mode == 0:
             lte_band = mode_list['LTEBandList']['LTEBand'][0]['Value']
@@ -84,9 +90,18 @@ class LTEStick:
             try:    # E 3372
                 self.client.net.set_net_mode(networkmode=net_mode, networkband=net_band, lteband=lte_band)
             except ResponseErrorException:
-                print("New Net-Mode set: " + str(net_mode))
+                e_c = 0
+                while self.client.device.signal()['mode'] is None:
+                    if e_c > 10:
+                        print("Error.. None Net Mode after changing Net Mode ..")
+                        raise ConnectionError
+                    time.sleep(1)
+                    e_c += 1
+
+                # print("New Net-Mode set: " + str(net_mode))
                 return net_mode
             except Exception:
+                print("Error.. while trying to set Net Mode ..")
                 raise ConnectionError
             return False
         else:

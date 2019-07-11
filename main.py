@@ -39,7 +39,7 @@ class Main:
                 print("Arduino Restart detected ....")
                 self.scan.run_trigger = False                       # Close Scan Thread
                 temp_ardu = self.ardu.servo_on, self.ardu.servo_val # Get temp values from old Ardu session
-                temp_scan = self.scan.scanres, self.scan.null_hdg   # Get temp values from old Scan session
+                temp_scan = self.scan.scanres3G, self.scan.null_hdg   # Get temp values from old Scan session
                 try:                                                # Try reinitialize Arduino
                     self.ardu = self.init_ardu()
                 except:
@@ -48,7 +48,7 @@ class Main:
                     break
                 self.scan = self.init_scan()                        # Reinitialize Scan Class
                 self.ardu.servo_on = temp_ardu[0]                   # Write back temp values to Arduino
-                self.scan.scanres, self.scan.null_hdg = temp_scan   # Write back temp values to Scan Class
+                self.scan.scanres3G, self.scan.null_hdg = temp_scan   # Write back temp values to Scan Class
                 self.ardu.toggle_servos(self.ardu.servo_on)         # Send last Servo state to Arduino
                 self.ardu.set_servo(val=temp_ardu[1])               # Send last Servo value to Arduino
             time.sleep(1)
@@ -76,29 +76,40 @@ if main.run_trigger:
     print("Main init")
 
     # main.ardu.set_servo(val=200)
-    main.ardu.set_gimbal_lock_hdg()
-    main.ardu.set_servo(val=512)
+    # main.ardu.set_gimbal_lock_hdg()
+    main.ardu.set_servo(val=1023, speed=120, new_gimbal_lock=True)
     main.ardu.toggle_servos(True)
+    time.sleep(2)
     try:
     # for m in [2, 3, 0]:
     #     main.lte.set_net_mode(m)
     #     print("Netmode {} gesetzt". format(m))
     #     try:
     #         time.sleep(40)
-        while main.run_trigger:
-            if main.ardu.run_trigger:
-                main.scan.scan_cycle(resolution=32, lte_duration=7)
+
+        # while main.run_trigger:
+        if main.ardu.run_trigger:
+            try:
+                main.scan.scan_cycle(resolution=32, lte_duration=7, plot=True)
+            except ConnectionError:
+                print("Wird beendet ... Connection Error LTE")
+                main.ardu.set_servo(val=512, speed=150, new_gimbal_lock=True)
+                time.sleep(2)
+                main.run_trigger = False
                 # main.scan.plot_scan(1)
                 # main.scan.plot_scan(2)
                 # main.scan.plot_scan(3)
-                threading.Thread(target=main.scan.plot_scan).start()
-                # threading.Thread(target=main.scan.plot_scan, args=(1, )).start()
-                # threading.Thread(target=main.scan.plot_scan, args=(2, )).start()
-                # threading.Thread(target=main.scan.plot_scan, args=(3, )).start()
-                # tmp = sorted(main.scan.scanres.keys())
-                # for key in tmp:
-                #     print("{} - {}".format(main.scan.scanres[key], key))
-
+            # threading.Thread(target=main.scan.plot_scan).start()
+            # tmp = sorted(main.scan.scanres3G.keys())
+            # for key in tmp:
+            #     print("scanres3G - {} - {}".format(main.scan.scanres3G[key], key))
+            # tmp = sorted(main.scan.scanres4G.keys())
+            # for key in tmp:
+            #     print("scanres4G - {} - {}".format(main.scan.scanres4G[key], key))
+            print("Wird beendet ... ")
+            main.ardu.set_servo(val=512, speed=150, new_gimbal_lock=True)
+            time.sleep(2)
+            main.run_trigger = False
     except KeyboardInterrupt:
         print("Wird beendet ... ")
         main.ardu.set_servo(val=512, speed=150, new_gimbal_lock=True)
