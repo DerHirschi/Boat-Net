@@ -1,4 +1,4 @@
-# Boat-Net
+# Boat-Net (Python3)
 --
 WEB-GUI based system for camping or boat trips, runable on raspberry pi 3, includes:
 
