@@ -11,7 +11,7 @@ WEB-GUI based system for camping or boat trips, runable on raspberry pi 3, inclu
   - activ slow scan (not so noisy)
   - passiv scan (without rotating servo.. just let the boat rotate in the wind if set anchor)
 
-  Setup:
+  HW-Setup:
   - LTE-Modem: Huawei e3372
   - Antenna rotor controller: Arduino Mega 2560 or Arduino Nano
   - Gyro / Compass sensor for Arduino: GY-91 MPU9250 BMP280 10DOF 
@@ -23,7 +23,7 @@ WEB-GUI based system for camping or boat trips, runable on raspberry pi 3, inclu
 #### Weather Information:
 - plot data from weather sensor on raspberry pi to web page
 
-  Setup:
+  HW-Setup:
   - Weather sensor: BME280
 
 
@@ -31,7 +31,7 @@ WEB-GUI based system for camping or boat trips, runable on raspberry pi 3, inclu
 #### GPS Information:
 - change GPS cordinates for Maps an Links on web page
 
-  Setup:
+  HW-Setup:
   - GPS - Stick: Diymall Vk-172 vk 172 Gmouse G-Maus Usb
 
 
