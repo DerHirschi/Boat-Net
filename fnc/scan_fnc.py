@@ -175,43 +175,45 @@ class ScanSignals:
         return res, key
 
     @staticmethod
-    def get_signal_peak_in_range(scanres, low_sig=-15):
-        # lowest signals: 4G/RSRQ  = -15
-        # lowest signals: 3G/EC/IO = -15
+    def get_signal_peak_in_range(scanres, threshold=-15):
+        # signal threshold: 4G/RSRQ  = -15
+        # signal threshold: 3G/EC/IO = -15
         temp_res = {}
         temp_arrays = []
         for key in scanres.keys():                # Drop all values below lowest signal
-            if scanres[key][0] >= low_sig:
+            if scanres[key][0] >= threshold:
                 temp_res[key] = scanres[key][0]
 
         temp_keys = sorted(temp_res.keys())
+        if temp_keys:                             # Check if some values available after dropping under threshold values
+            i = 0
+            flag_key = temp_keys[i]
+            n = 0
+            n_key = 0
+            while n_key != len(temp_keys):          # put every range(array) in an array..
+                if flag_key == n:                   # if value is in range
+                    if len(temp_arrays) == i:       # if new range
+                        temp_arrays.append([n])
+                    else:                           # if range exist push next value to array
+                        temp_arrays[i].append(n)
+                    n_key += 1
+                    if n_key < len(temp_keys):      # Break if all keys are irritated
+                        flag_key = temp_keys[n_key] # pull nex key to temp
+                    else:
+                        break
+                else:                               # if value not in range
+                    i = len(temp_arrays)            # next range
+                n += 1
 
-        i = 0
-        flag_key = temp_keys[i]
-        n = 0
-        n_key = 0
-        while n_key != len(temp_keys):          # put every range(array) in an array..
-            if flag_key == n:                   # if value is in range
-                if len(temp_arrays) == i:       # if new range
-                    temp_arrays.append([n])
-                else:                           # if range exist push next value to array
-                    temp_arrays[i].append(n)
-                n_key += 1
-                if n_key < len(temp_keys):      # Break if all keys are irritated
-                    flag_key = temp_keys[n_key] # pull nex key to temp
-                else:
-                    break
-            else:                               # if value not in range
-                i = len(temp_arrays)            # next range
-            n += 1
+            avg_res = {}                            # Return value dict
+            for ra in temp_arrays:                  # Calculate average for each range
+                temp = []
+                for ke in ra:
+                    temp.append(scanres[ke][0])
 
-        avg_res = {}                            # Return value dict
-        for ra in temp_arrays:                  # Calculate average for each range
-            temp = []
-            for ke in ra:
-                temp.append(scanres[ke][0])
-
-            avg_res[round(list_avg(temp), 2)] = ra
-        log(avg_res, 9)
-        log(sorted(avg_res.keys()), 9)
-        return avg_res                          # Return dict. Keys = avg values, value = list of servo hdg for range
+                avg_res[round(list_avg(temp), 2)] = ra
+            log(avg_res, 9)
+            # log(sorted(avg_res.keys()), 9)
+            return avg_res                         # Return dict. Keys = avg values, value = list of servo hdg for range
+        return {}                                  # or {} if no keys in scanres because all sig vals under threshold
+        # I start to love Pythons dictionaries

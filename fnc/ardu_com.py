@@ -33,7 +33,7 @@ class ArduCom:
         if self.get_handshake():
             print("Handshake successful..")
             # Receiver Thread
-            self.receiver = threading.Thread(target=self.read_serial).start()
+            threading.Thread(target=self.read_serial).start()
         else:
             print("Handshake failed !")
             self.run_trigger = False

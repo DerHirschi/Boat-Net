@@ -119,9 +119,10 @@ if main.run_trigger:
                 # main.scan.plot_scan(3)
             # threading.Thread(target=main.scan.plot_scan, args=(2, )).start()
             # threading.Thread(target=main.scan.plot_scan, args=(3, )).start()
-            main.scan.get_signal_peak_in_range(main.scan.scanres3G, -10)
-            main.scan.get_signal_peak_in_range(main.scan.scanres4G, -6)
+            # main.scan.get_signal_peak_in_range(main.scan.scanres3G, -10)
+            # main.scan.get_signal_peak_in_range(main.scan.scanres4G, -6)
             main.web.plot_lte_signals(2)
+            time.sleep(1)
             main.web.plot_lte_signals(3)
             # tmp = sorted(main.scan.scanres3G.keys())
             # for key in tmp:
