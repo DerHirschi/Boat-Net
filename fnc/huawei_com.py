@@ -29,11 +29,12 @@ class LTEStick:
         for e in range(trys):
             signal_info = self.client.device.signal()
             mode = self.get_int(signal_info["mode"])
-            # lte_quality_signal_dict = { //4G
-            #                   'rsrp': (-80, -90, -100),
-            #                   'rsrq': (-10, -15, -20),
-            #                   'sinr': (20, 13, 0),
-            #                  }
+            # 4G
+            # 'rsrp': (-80, -90, -100),
+            # 'rsrq': (-10, -15, -20),
+            # 'sinr': (20, 13, 0),
+            # https://wiki.teltonika.lt/view/Mobile_Signal_Strength_Recommendations
+
             if mode == 7:  # 4G
                 self.rsrq = self.get_int(signal_info["rsrq"])
                 self.rsrp = self.get_int(signal_info["rsrp"])

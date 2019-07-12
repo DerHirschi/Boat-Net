@@ -3,7 +3,7 @@ import matplotlib.cm as cm
 import matplotlib.pyplot as plt
 import shutil
 import config
-from etc.var import overflow_value
+from etc.var import overflow_value, change_file_ext
 from etc.log import log
 
 
@@ -20,7 +20,7 @@ class Data2Web:
         self.center = int((self.N - self.val_range) / 2)
         self.radii = []
         self.width = np.pi / 4 * np.random.rand(self.N)
-        f = open(config.html_root + config.html_lte_page.replace('.html', '.ba'), 'r')
+        f = open(config.html_root + change_file_ext(config.html_lte_page, 'ba'), 'r')
         self.html_str_lte_page = f.read()
         f.close()
         for i in range(self.N):

@@ -2,11 +2,11 @@ from config import lte_stick_addi_1 as modem1
 from fnc.huawei_com import LTEStick
 from fnc.ardu_com import ArduCom
 from fnc.scan_fnc import ScanSignals
-import matplotlib as mpl
 import os
 from etc.log import log
 import threading
 import time
+import matplotlib as mpl
 if not os.environ.get('DISPLAY'):     # Get an Error from python.tk.. Solution from:
     mpl.use('Agg')                    # https://forum.ubuntuusers.de/topic/python3-matplotlib-pyplot-funktioniert-nicht/
 from web_gui.data2web import Data2Web # Python.tk import bug.
@@ -50,8 +50,8 @@ class Main:
                 self.scan.run_trigger = False                       # Close Scan Thread
                 temp_ardu = self.ardu.servo_on, self.ardu.servo_val # Get temp values from old Ardu session
                 temp_scan = self.scan.scanres3G, \
-                            self.scan.scanres4G, \
-                            self.scan.null_hdg                      # Get temp values from old Scan session
+                    self.scan.scanres4G, \
+                    self.scan.null_hdg                              # Get temp values from old Scan session
                 try:                                                # Try reinitialize Arduino
                     self.ardu = self.init_ardu()
                 except ConnectionError:
@@ -63,8 +63,8 @@ class Main:
                 self.ardu.set_servo(val=temp_ardu[1])               # Send last Servo value to Arduino
                 self.scan = self.init_scan()                        # Reinitialize Scan Class
                 self.scan.scanres3G, \
-                self.scan.scanres4G, \
-                self.scan.null_hdg = temp_scan                      # Write back temp values to Scan Class
+                    self.scan.scanres4G, \
+                    self.scan.null_hdg = temp_scan                  # Write back temp values to Scan Class
                 self.web = Data2Web(self.scan)                      # Reinitialize Web Output
             time.sleep(1)
         self.ardu.run_trigger = False
@@ -106,7 +106,7 @@ if main.run_trigger:
         if main.ardu.run_trigger:
             main.web.write_plmn_list2web()
             try:
-                main.scan.scan_cycle(resolution=32, lte_duration=5, duration=4, net_mode=0)
+                main.scan.scan_cycle(resolution=32, lte_duration=5, duration=2, net_mode=0)
             except ConnectionError:
             # while True:
             #     print(main.lte.get_string())
@@ -119,6 +119,8 @@ if main.run_trigger:
                 # main.scan.plot_scan(3)
             # threading.Thread(target=main.scan.plot_scan, args=(2, )).start()
             # threading.Thread(target=main.scan.plot_scan, args=(3, )).start()
+            main.scan.get_signal_peak_in_range(main.scan.scanres3G, -10)
+            main.scan.get_signal_peak_in_range(main.scan.scanres4G, -6)
             main.web.plot_lte_signals(2)
             main.web.plot_lte_signals(3)
             # tmp = sorted(main.scan.scanres3G.keys())

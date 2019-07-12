@@ -24,6 +24,9 @@ from gps import *
 import os
 from ctypes import c_short
 
+import matplotlib as mpl
+if not os.environ.get('DISPLAY'):     # Get an Error from python.tk.. Solution from:
+    mpl.use('Agg')                    # https://forum.ubuntuusers.de/topic/python3-matplotlib-pyplot-funktioniert-nicht/
 import matplotlib.pyplot as plt
 import mpld3
 import numpy as np

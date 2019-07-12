@@ -1,8 +1,7 @@
 import time
 import threading
-from etc.var import map_val
-from etc.var import overflow_value
-from etc.log import *
+from etc.var import overflow_value, list_avg, map_val
+from etc.log import log
 
 
 class ScanSignals:
@@ -35,10 +34,9 @@ class ScanSignals:
                 else:
                     if sigs[3]:
                         temp_sig[3] = sigs[3]
-                    duration -= 1
 
         if temp_sig[3] in [2, 7]:
-            if duration != 0:
+            if None not in temp_sig:
                 range_begin = int(resolution / 2)
                 temp_res = {
                     2: self.scanres3G,
@@ -68,7 +66,6 @@ class ScanSignals:
         return int(map_val(hdg, -360, 360, -self.N, self.N))
 
     def set_servo_hdg(self, val):
-        # log("VAL " + str(val), 9)
         self.arduino.set_servo(servo=1, val=val)
 
     def scan_full_range(self, resolution=24, loop=None, duration=5):
@@ -165,16 +162,56 @@ class ScanSignals:
         else:
             return False
 
-    def get_peak(self):
+    @staticmethod
+    def get_peak(scanres):     # TODO get peak signals in biggest range
         res, key = None, None
-        for i in self.scanres3G.keys():
+        for i in scanres.keys():
             if res:
-                temp = self.scanres3G[i]
+                temp = scanres[i]
                 if temp[0] > res[0]:
                     res, key = temp, i
-                if temp[0] == res[0] and temp[1] > res[1]:     # Check 3G or 4G
-                    res, key = temp, i
             else:
-                res, key = self.scanres3G[i], i
-
+                res, key = scanres[i], i
         return res, key
+
+    @staticmethod
+    def get_signal_peak_in_range(scanres, low_sig=-15):
+        # lowest signals: 4G/RSRQ  = -15
+        # lowest signals: 3G/EC/IO = -15
+        temp_res = {}
+        temp_arrays = []
+        for key in scanres.keys():                # Drop all values below lowest signal
+            if scanres[key][0] >= low_sig:
+                temp_res[key] = scanres[key][0]
+
+        temp_keys = sorted(temp_res.keys())
+
+        i = 0
+        flag_key = temp_keys[i]
+        n = 0
+        n_key = 0
+        while n_key != len(temp_keys):          # put every range(array) in an array..
+            if flag_key == n:                   # if value is in range
+                if len(temp_arrays) == i:       # if new range
+                    temp_arrays.append([n])
+                else:                           # if range exist push next value to array
+                    temp_arrays[i].append(n)
+                n_key += 1
+                if n_key < len(temp_keys):      # Break if all keys are irritated
+                    flag_key = temp_keys[n_key] # pull nex key to temp
+                else:
+                    break
+            else:                               # if value not in range
+                i = len(temp_arrays)            # next range
+            n += 1
+
+        avg_res = {}                            # Return value dict
+        for ra in temp_arrays:                  # Calculate average for each range
+            temp = []
+            for ke in ra:
+                temp.append(scanres[ke][0])
+
+            avg_res[round(list_avg(temp), 2)] = ra
+        log(avg_res, 9)
+        log(sorted(avg_res.keys()), 9)
+        return avg_res                          # Return dict. Keys = avg values, value = list of servo hdg for range

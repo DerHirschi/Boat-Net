@@ -17,14 +17,14 @@ WEB-GUI based system for camping or boat trips, runable on raspberry pi 3, inclu
   - Gyro / Compass sensor for Arduino: GY-91 MPU9250 BMP280 10DOF 
 
 #### Free WIFI Scanner:
-- Scanning permanently for free WIFI and test with ping 8.8.8.8 if usable
+- Scanning permanently for free WIFI and test ping 8.8.8.8 if usable
 - #### Using VPN
 
 #### Weather Information:
 - plot data from weather sensor on raspberry pi to web page
 
   HW-Setup:
-  - Weather sensor: BME280
+  - Weather sensor: BME280 on Raspberry pi
 
 
 

@@ -107,7 +107,7 @@ class ArduCom:
             self.ack = chr(int(buffer_in[3:]))
             # print('ACK-Recv :' + str(self.ack))
         # Heading
-        elif 'HDG' in buffer_in:
+        elif 'HDG' in buffer_in:    # TODO make other smaller unique flag(maybe one byte). got lot of data form Ardu
             self.heading = float(buffer_in[3:])
         # Gimbal lock Heading
         elif 'LH' in buffer_in:     # TODO data behind flag. bool 1 or so

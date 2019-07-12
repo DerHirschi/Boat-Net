@@ -167,18 +167,23 @@ def overflow_int(_var, _bit=8):
         return _var, False
 
 
-def overflow_value(val, overflow=1024):
-    return val % overflow
+def overflow_value(_val, _overflow=1024):
+    return _val % _overflow
 
 
-def map_val(sensor_val, in_min, in_max, out_min, out_max):
-    # https://stackoverflow.com/questions/1969240/mapping-a-range-of-values-to-another
-    out_range = out_max - out_min
-    in_range = in_max - in_min
-    in_val = sensor_val - in_min
-    val = (float(in_val)/in_range)*out_range
-    out_val = out_min + val
-    return out_val
+def list_avg(_in_list):
+    # source: https://www.geeksforgeeks.org/find-average-list-python/
+    return sum(_in_list) / len(_in_list)
+
+
+def map_val(_sensor_val, _in_min, _in_max, _out_min, _out_max):
+    # source: https://stackoverflow.com/questions/1969240/mapping-a-range-of-values-to-another
+    _out_range = _out_max - _out_min
+    _in_range = _in_max - _in_min
+    _in_val = _sensor_val - _in_min
+    _val = (float(_in_val)/_in_range)*_out_range
+    _out_val = _out_min + _val
+    return _out_val
 
 
 if __name__ == '__main__':
