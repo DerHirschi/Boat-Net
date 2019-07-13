@@ -83,8 +83,7 @@ class Main:
             raise ConnectionError
 
     def init_scan(self):
-        return ScanSignals(lte_stick=self.lte, ardu=self.ardu)
-
+        return ScanSignals(_lte_stick=self.lte, _ardu=self.ardu)
 
 
 main = Main(modem1)
@@ -106,7 +105,7 @@ if main.run_trigger:
         if main.ardu.run_trigger:
 
             try:
-                main.scan.scan_cycle(resolution=32, lte_duration=5, duration=2, net_mode=0)
+                main.scan.scan_cycle(_resolution=32, _lte_duration=5, _duration=2, _net_mode=0)
             except ConnectionError:
             # while True:
             #     print(main.lte.get_string())
@@ -121,17 +120,38 @@ if main.run_trigger:
             # threading.Thread(target=main.scan.plot_scan, args=(3, )).start()
             # main.scan.get_signal_peak_in_range(main.scan.scanres3G, -10)
             # main.scan.get_signal_peak_in_range(main.scan.scanres4G, -6)
-            print("Plot Signals 2")
+
+            log("2", 9)
+            # main.scan.get_signal_arrays(2)    # called in scan.scan_cycle() after scan.scan_full_range()
+            # TODO sig_array_3G & sig_array_4G fill gaps between cells(arrays)
+            _cells = sorted(main.scan.sig_array_3G.keys())
+            if _cells:
+                _scan_arr = main.scan.sig_array_3G[_cells[0]]
+                log("_scan_arr 1 2 " + str(_scan_arr), 9)
+                if _scan_arr:
+                    log("Peak HDG of Array 2" + str(main.scan.get_peak_from_hgd_list(_scan_arr, 2)))
+            log("", 9)
+            log("3", 9)
+            # main.scan.get_signal_arrays(2)    # called in scan.scan_cycle() after scan.scan_full_range()
+            _cells = sorted(main.scan.sig_array_4G.keys())
+            if _cells:
+                _scan_arr = main.scan.sig_array_4G[_cells[0]]
+                log("_scan_arr 1 3 " + str(_scan_arr), 9)
+                if _scan_arr:
+                    log("Peak HDG of Array 3" + str(main.scan.get_peak_from_hgd_list(_scan_arr, 3)))
+            log("Plot Signals 2", 9)
             main.web.plot_lte_signals(2)
             time.sleep(1)
-            print("Plot Signals 3")
+            log("Plot Signals 3", 9)
             main.web.plot_lte_signals(3)
-            time.sleep(1)
-            print("Plot Arrays 2")
-            main.web.plot_signal_arrays(2)
-            time.sleep(1)
-            print("Plot Arrays 3")
-            main.web.plot_signal_arrays(3)
+            # FIXME
+            # time.sleep(1)
+            # log("Plot Arrays 2", 9)
+            # main.web.plot_signal_arrays(2)
+            # time.sleep(1)
+            # log("Plot Arrays 3", 9)
+            # main.web.plot_signal_arrays(3)
+            # FIXME END
             # tmp = sorted(main.scan.scanres3G.keys())
             # for key in tmp:
             #     print("scanres3G - {} - {}".format(main.scan.scanres3G[key], key))
