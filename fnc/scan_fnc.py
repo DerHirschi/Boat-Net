@@ -175,7 +175,11 @@ class ScanSignals:
         return res, key
 
     @staticmethod
-    def get_signal_peak_in_range(scanres, threshold=-15):
+    def get_signal_array_peak():
+        pass
+
+    @staticmethod
+    def get_signal_arrays(scanres, threshold=-15):
         # signal threshold: 4G/RSRQ  = -15
         # signal threshold: 3G/EC/IO = -15
         temp_res = {}
@@ -212,8 +216,8 @@ class ScanSignals:
                     temp.append(scanres[ke][0])
 
                 avg_res[round(list_avg(temp), 2)] = ra
-            log(avg_res, 9)
-            # log(sorted(avg_res.keys()), 9)
+            # log(avg_res, 9)
+            log(sorted(avg_res.keys()), 9)
             return avg_res                         # Return dict. Keys = avg values, value = list of servo hdg for range
         return {}                                  # or {} if no keys in scanres because all sig vals under threshold
         # I start to love Pythons dictionaries

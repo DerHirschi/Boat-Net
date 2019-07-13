@@ -76,8 +76,11 @@ for bme2800.py additional:
 All of this are under development.
 Some parts, like wifi/main.py 
 or web_gui/bme280.py, are ready to useable as standalone.
+</br>
 
 <br/><br/><br/>
+#
+#
 ### so..
 # A lot to do !!!
 Where is the piano, I carry the notes...

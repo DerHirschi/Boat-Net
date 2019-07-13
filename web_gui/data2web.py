@@ -72,28 +72,14 @@ class Data2Web:
                 }[mo]
             }[n_mo]
 
-        def _get_sig_array_color(_val):
-            return {
-                7: 'lawngreen',
-                6: 'green',
-                5: 'mediumspringgreen',
-                4: 'yellowgreen',
-                3: 'yellow',
-                2: 'orange',
-                1: 'red',
-                0: 'black'
-            }[int(round(_val / 3))]     # TODO better colors for the signal values
-
         scanres = {
             2: self.scan.scanres3G,
             3: self.scan.scanres4G
         }[net_mode]
-        radii = self.radii
-        width = self.width
 
-        sig_array_dict = self.scan.get_signal_peak_in_range(scanres)
-        if not plot_signal_array:
-            sig_array_dict = {}
+        sig_array_dict = {}
+        if plot_signal_array:
+            sig_array_dict = self.scan.get_signal_arrays(scanres)
 
         conf = []
         if signal_type:
@@ -104,6 +90,7 @@ class Data2Web:
 
         for con in conf:
             n_null, f_colo, o_name, signal_type = con
+            radii = self.radii
             max_ax = 0
             for i in range(self.N):
                 if i in scanres:
@@ -122,30 +109,27 @@ class Data2Web:
             for label in ax.get_yticklabels():
                 ax.figure.texts.append(label)
             if len(sig_array_dict.keys()):               # Plot signal arrays if get data in ( sig_array not None )
-
+                radii_array = self.radii_array
+                # Plot 2´nd axis ( Good Signal Arrays )
+                # Source: https://stackoverflow.com/questions/19590103/add-second-axis-to-polar-plot
+                ax2 = ax.figure.add_axes(ax.get_position(), projection='polar',
+                                         frameon=False, label='twin',
+                                         theta_direction=ax.get_theta_direction(),
+                                         theta_offset=ax.get_theta_offset())
                 map_null = _get_mode_config(1, net_mode)[0]
-                for key in sorted(sig_array_dict.keys(), reverse=True):
-                    radii_array = self.radii_array
-                    # Plot 2´nd axis ( Good Signal Arrays )
-                    # Source: https://stackoverflow.com/questions/19590103/add-second-axis-to-polar-plot
-                    ax2 = ax.figure.add_axes(ax.get_position(), projection='polar',
-                                             frameon=False, label='twin',
-                                             theta_direction=ax.get_theta_direction(),
-                                             theta_offset=ax.get_theta_offset())
+                for key in sorted(sig_array_dict.keys()):
+
                     for hdg_key in sig_array_dict[key]:
                         cor_hdg_key = overflow_value((self.center + hdg_key), self.N)
                         val = map_val((map_null + key), 0, map_null, 0, max_ax)
                         radii_array[cor_hdg_key] = val
-                    ax2.set_yticklabels([])
-                    ax2.grid(False)
-                    ax2.xaxis.set_visible(False)
-                    col = _get_sig_array_color(map_null + key)
-                    ax2.set_alpha(0.2)
-                    ax2.fill_between(self.theta, radii_array, color=col, alpha=0.2)
+                ax2.set_yticklabels([])
+                ax2.grid(False)
+                ax2.xaxis.set_visible(False)
+                ax2.set_alpha(0.2)
+                ax2.fill_between(self.theta, radii_array, color='black', alpha=0.2)
 
-                    time.sleep(0.001)
-
-            bars = ax.bar(self.theta, radii, width=width, bottom=0.0)
+            bars = ax.bar(self.theta, radii, width=self.width, bottom=0.0)
             for r, bar in zip(radii, bars):
                 bar.set_facecolor(cm.jet(r / f_colo))
                 bar.set_alpha(0.9)
@@ -162,5 +146,67 @@ class Data2Web:
             shutil.copy(self.html_images + o_name + '.png',
                         self.html_images + o_name + '-800x800' + '.png')
             time.sleep(0.1)                             # To get time for other threads
+
+    def plot_signal_arrays(self, net_mode):     # Plot signal array in a separately Plot
+        scanres = {
+            2: self.scan.scanres3G,
+            3: self.scan.scanres4G
+        }[net_mode]
+        sig_array_dict = self.scan.get_signal_arrays(scanres)
+
+        def _get_mode_config(n_mo):
+            return {
+                2: (20., '3g_array-800x800'),
+                3: (20., '4g_array-800x800')
+            }[n_mo]
+
+        def _get_sig_array_color(_val):
+            return {
+                7: 'lawngreen',
+                6: 'green',
+                5: 'mediumspringgreen',
+                4: 'yellowgreen',
+                3: 'yellow',
+                2: 'orange',
+                1: 'red',
+                0: 'black'
+            }[int(round(_val / 3))]     # TODO better colors for the signal values
+
+        fig = plt.figure(figsize=(8, 8))
+        ax = fig.add_axes([0.1, 0.1, 0.8, 0.8], projection='polar')
+        for label in ax.get_yticklabels():
+            ax.figure.texts.append(label)
+        if len(sig_array_dict.keys()):  # Plot signal arrays if get data in ( sig_array not None )
+            plot_config = _get_mode_config(net_mode)
+            e_max = 0
+            for key in sorted(sig_array_dict.keys()):
+                radii_array = self.radii_array
+                for hdg_key in sig_array_dict[key]:
+                    cor_hdg_key = overflow_value((self.center + hdg_key), self.N)
+                    radii_array[cor_hdg_key] = plot_config[0] + key
+
+                ax.grid(True)
+                ax.xaxis.set_visible(False)
+                col = _get_sig_array_color(plot_config[0] + key)
+                if (plot_config[0] + key) > e_max:
+                    e_max = (plot_config[0] + key)
+                ax.set_alpha(0.8)
+                ax.fill_between(self.theta, radii_array, color=col, alpha=0.8)
+                ax.set_rmin(0)
+                ax.set_rmax(e_max)
+                time.sleep(0.001)
+
+            # ax.grid(True)
+
+            # plt.savefig(self.html_images + plot_config[1] + '.png')
+            plt.savefig(config.html_root + 'test_' + str(net_mode) + '.png')
+            # shutil.copy(self.html_images + o_name + '.png',
+            #             self.html_images + o_name + '-800x800' + '.png')
+            time.sleep(0.1)
+        plt.cla()
+        plt.clf()
+        plt.close(fig)
+
+
 
 

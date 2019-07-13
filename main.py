@@ -104,7 +104,7 @@ if main.run_trigger:
 
         # while main.run_trigger:
         if main.ardu.run_trigger:
-            main.web.write_plmn_list2web()
+
             try:
                 main.scan.scan_cycle(resolution=32, lte_duration=5, duration=2, net_mode=0)
             except ConnectionError:
@@ -121,19 +121,29 @@ if main.run_trigger:
             # threading.Thread(target=main.scan.plot_scan, args=(3, )).start()
             # main.scan.get_signal_peak_in_range(main.scan.scanres3G, -10)
             # main.scan.get_signal_peak_in_range(main.scan.scanres4G, -6)
+            print("Plot Signals 2")
             main.web.plot_lte_signals(2)
             time.sleep(1)
+            print("Plot Signals 3")
             main.web.plot_lte_signals(3)
+            time.sleep(1)
+            print("Plot Arrays 2")
+            main.web.plot_signal_arrays(2)
+            time.sleep(1)
+            print("Plot Arrays 3")
+            main.web.plot_signal_arrays(3)
             # tmp = sorted(main.scan.scanres3G.keys())
             # for key in tmp:
             #     print("scanres3G - {} - {}".format(main.scan.scanres3G[key], key))
             # tmp = sorted(main.scan.scanres4G.keys())
             # for key in tmp:
             #     print("scanres4G - {} - {}".format(main.scan.scanres4G[key], key))
-            main.ardu.set_servo(val=512, speed=150, new_gimbal_lock=True)
+
             main.scan.get_plmn_list()
             print("")
             print(main.scan.plmn_list)
+            main.web.write_plmn_list2web()
+            main.ardu.set_servo(val=512, speed=150, new_gimbal_lock=True)
             print("")
             print("Wird beendet ... ")
             time.sleep(2)
