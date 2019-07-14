@@ -21,7 +21,8 @@ class ArduCom:
         # In Vars
         self.run_trigger = True     # Thread trigger .. Stop all Threads
         # Out Vars
-        self.ack = -1               # Ack Pkt Flag ( -1 trigger f frei f. n. pkt )
+        self.ack = -1               # ACK Pkt Flag ( -1 trigger f frei f. n. pkt )
+        self.sac = True             # SAC Pkt Flag . If servo has final pos in servo slow speed mode
         self.heading = 0            # Heading get back from Ardu ( get after success full handshake)
         self.servo_min_angle = 0    # Angle get from Ardu Handshake. need to calculate scan angle
         self.servo_max_angle = 0    # Angle get from Ardu Handshake. need to calculate scan angle
@@ -112,6 +113,9 @@ class ArduCom:
         # Gimbal lock Heading
         elif 'LH' in buffer_in:     # TODO data behind flag. bool 1 or so
             self.lock_hdg = float(buffer_in[2:])
+        # ACK if Servo is on Position
+        elif 'SAC' in buffer_in:
+            self.sac = True
         # Restart
         elif 'BSTRT' in buffer_in:
             print("Get Arduino Restart Trigger !!!")
@@ -128,23 +132,39 @@ class ArduCom:
         except serial.SerialException:
             print("Error write to Arduion ...")
             self.run_trigger = False
+        _e_count = 0
+        while self.ack != flag:
+            if not self.run_trigger or _e_count >= 30:
+                print("ERROR: NO ACK in 6 sec")
+                return False
+            time.sleep(0.2)
+            _e_count += 1
 
-        while self.ack != flag:     # TODO Count and break
-            if not self.run_trigger:
-                break
         self.ack = -1
+        return True
 
-    def set_servo(self, servo=1, val=2512, speed=1, new_gimbal_lock=False, wait_servo_confirm=False):
+    def set_servo(self, servo=1, _val=512, _speed=1, new_gimbal_lock=False, wait_servo_confirm=False):
         flag = 'S'      # 'S' = 83
         out = ''
+        if _speed != 1:
+            self.sac = False
         if new_gimbal_lock:
             out += 'L'
-        out += '{},{}:{}'.format((val + 2000), speed, servo)     # val+2000 to get - values
-        self.servo_val = val
-        self.send_w_ack(flag, out)
-        # TODO entweder via ACK o extra Flag parsing
+        out += '{},{}:{}'.format((_val + 2000), _speed, servo)     # val+2000 to get - values
+        self.servo_val = _val
+        _ret = self.send_w_ack(flag, out)
         if wait_servo_confirm:
-            pass
+            _e_count = 0
+            while not self.sac and self.run_trigger:
+                if _e_count < 300:               # wait for SAC or 300*0.1 sec (30 sec)
+                    # TODO https://stackoverflow.com/questions/5568646/usleep-in-python/5568837
+                    time.sleep(0.1)
+                    # TODO wait just so long the servo needs to set + a few sec extra
+                    _e_count += 1
+                else:
+                    print("ERROR: NO SAC in 30 sec")
+                    return False
+        return _ret
 
     def toggle_servos(self, switch=None):  # Servo toggle ( on/off Servo Gimbal on Ardu)
         flag = 'A'      # 'A' = 65

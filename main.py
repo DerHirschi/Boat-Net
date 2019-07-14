@@ -60,7 +60,7 @@ class Main:
                     break
                 self.ardu.servo_on = temp_ardu[0]                   # Write back temp values to Arduino
                 self.ardu.toggle_servos(self.ardu.servo_on)         # Send last Servo state to Arduino
-                self.ardu.set_servo(val=temp_ardu[1])               # Send last Servo value to Arduino
+                self.ardu.set_servo(_val=temp_ardu[1])               # Send last Servo value to Arduino
                 self.scan = self.init_scan()                        # Reinitialize Scan Class
                 self.scan.scanres3G, \
                     self.scan.scanres4G, \
@@ -94,9 +94,9 @@ if main.run_trigger:
     print("Main init")
     # main.ardu.set_servo(val=200)
     # main.ardu.set_gimbal_lock_hdg()
-    main.ardu.set_servo(val=1023, speed=120, new_gimbal_lock=True)
-    main.ardu.toggle_servos(True)
+    main.ardu.set_servo(_val=512, _speed=120, new_gimbal_lock=True)
     time.sleep(2)
+    main.ardu.toggle_servos(True)
     try:
     # for m in [2, 3, 0]:
     #     main.lte.set_net_mode(m)
@@ -107,13 +107,17 @@ if main.run_trigger:
         # while main.run_trigger:
         if main.ardu.run_trigger:
 
+            # log("Start servo", 9)
+            _ret = main.ardu.set_servo(_val=1000, _speed=200, wait_servo_confirm=True)
+            # log(_ret, 9)
+            # log("Stop servo", 9)
             try:
                 main.scan.scan_cycle(_resolution=32, _lte_duration=5, _duration=2, _net_mode=0)
             except ConnectionError:
             # while True:
             #     print(main.lte.get_string())
                 print("Wird beendet ... Connection Error LTE")
-                main.ardu.set_servo(val=512, speed=150, new_gimbal_lock=True)
+                main.ardu.set_servo(_val=512, _speed=150, new_gimbal_lock=True)
                 time.sleep(2)
                 main.run_trigger = False
                 # main.scan.plot_scan(1)
@@ -175,14 +179,14 @@ if main.run_trigger:
             print("")
             print(main.scan.plmn_list)
             main.web.write_plmn_list2web()
-            main.ardu.set_servo(val=512, speed=150, new_gimbal_lock=True)
+            main.ardu.set_servo(_val=512, _speed=150, new_gimbal_lock=True)
             print("")
             print("Wird beendet ... ")
             time.sleep(2)
             main.run_trigger = False
     except KeyboardInterrupt:
         print("Wird beendet ... ")
-        main.ardu.set_servo(val=512, speed=150, new_gimbal_lock=True)
+        main.ardu.set_servo(_val=512, _speed=150, new_gimbal_lock=True)
         time.sleep(2)
         main.run_trigger = False
 

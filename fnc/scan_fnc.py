@@ -92,7 +92,7 @@ class ScanSignals:
         return int(map_val(_hdg, -360, 360, -self.N, self.N))
 
     def set_servo_hdg(self, val):
-        self.arduino.set_servo(servo=1, val=val)
+        self.arduino.set_servo(servo=1, _val=val)
 
     def scan_full_range(self, _resolution=24, _loop=None, _duration=5):
         _val = 0
