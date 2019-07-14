@@ -751,10 +751,19 @@ void send_Serial() {
 	}
 	if(outString.length() > 10) LOOP_counter = 1; // prevent jaming outString
 }
-
+// --------------------------
+//  add Strin to outString 
+// --------------------------
 void addTo_outString(String in){
 	outString += in;
 	outString += '\n';
+}
+// --------------------------
+//  add Strin to outString 
+// --------------------------
+void serv_in_pos_ack(){
+	addTo_outString("SAC");
+	servoList[0][1] = 1;
 }
 // --------------------------
 //  Main Loop - Get Serial - Adj Servo ...
@@ -781,7 +790,7 @@ switch (LOOP_counter) {
 			heading_buffer 	= flag_1; 	
 			addTo_outString("HDG" + (String)Heading);
 			if(ADJUST) addTo_outString("ADJ: " + (String)serv_max_angle);
-		}
+		}		
 		break;
 	
 	////////////////////// send Serial /////////////////////////
@@ -862,12 +871,9 @@ switch (LOOP_counter) {
 						servoList[serv][0] = new_servoval;
 						if(new_servospeed == 1) {
 							serv_slowmv_val_buffer = new_servoval;
-							//Serial.println("speed = 1" + (String) new_servospeed);
 							LOOP_counter = 0;
 						}
-						// TODO Send ACK if Servo value is set
 						send_ack();									
-					
 					}
 				break;
 				default:
@@ -895,16 +901,14 @@ switch (LOOP_counter) {
 				if((micros() - serv_slowmv_timer_buffer) > pow(servoList[0][1], 2) ) {
 					if(temp_servo_val > temp_slow_val) {					
 						serv_slowmv_val_buffer += 10;
-							
 					}else{				
 						serv_slowmv_val_buffer -= 10;						
-										
 					}	
 					serv_slowmv_timer_buffer = micros();
 				}
 			}else{
-				servoList[0][1] = 1;
-			}
+				serv_in_pos_ack();
+			}			
 		}
 	LOOP_counter = 0;
 	break;
@@ -916,7 +920,6 @@ switch (LOOP_counter) {
 		addTo_outString("INITMIN" + (String)bar + "INITMAX"+ (String)foo + "HDG" + (String)Heading);
 		// Serial.println("NANGLE" + (String)serv_N_angle);
 		// Serial.println("NMS" + (String)serv_N_ms);
-		//if(INIT_min and INIT_max) {	LOOP_counter = 0; }else{	LOOP_counter = 2;}
 		LOOP_counter = 2;
 		break;
 	}

@@ -124,7 +124,7 @@ if main.run_trigger:
             log("2", 9)
             # main.scan.get_signal_arrays(2)    # called in scan.scan_cycle() after scan.scan_full_range()
             # TODO sig_array_3G & sig_array_4G fill gaps between cells(arrays)
-            _cells = sorted(main.scan.sig_array_3G.keys())
+            _cells = sorted(main.scan.sig_array_3G.keys(), reverse=True)
             if _cells:
                 _scan_arr = main.scan.sig_array_3G[_cells[0]]
                 log("_scan_arr 1 2 " + str(_scan_arr), 9)
@@ -133,7 +133,13 @@ if main.run_trigger:
             log("", 9)
             log("3", 9)
             # main.scan.get_signal_arrays(2)    # called in scan.scan_cycle() after scan.scan_full_range()
-            _cells = sorted(main.scan.sig_array_4G.keys())
+            _cells = sorted(main.scan.sig_array_4G.keys(), reverse=True)
+            log("_cells 4g",9)
+            log(_cells,9)
+            log("_cells 4g [0]", 9)
+            log(_cells[0], 9)
+            log("main.scan.sig_array_4G", 9)
+            log(main.scan.sig_array_4G, 9)
             if _cells:
                 _scan_arr = main.scan.sig_array_4G[_cells[0]]
                 log("_scan_arr 1 3 " + str(_scan_arr), 9)

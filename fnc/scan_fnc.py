@@ -12,6 +12,8 @@ class ScanSignals:
         self.scanres4G = {}
         self.sig_array_3G = {}
         self.sig_array_4G = {}
+        self.threshold_3G = -15
+        self.threshold_4G = -15
         self.plmn_list = []
         self.null_hdg = self.arduino.heading    # Flag has to set if delete self.scanres
         self.run_trigger = False                # Loop stopper
@@ -24,6 +26,12 @@ class ScanSignals:
             2: self.scanres3G,
             3: self.scanres4G,
             7: self.scanres4G       # needed in get_lte_signals_avg()
+        }[_net_mode]
+
+    def get_threshold(self, _net_mode):
+        return {
+            2: self.threshold_3G,
+            3: self.threshold_4G
         }[_net_mode]
 
     def get_sig_array_dict(self, _net_mode):
@@ -209,6 +217,7 @@ class ScanSignals:
         _scanres = self.get_scanres_dict(_net_mode)
         _temp_res = {}
         _temp_arrays = []
+        _threshold = self.get_threshold(_net_mode)
         for _key in _scanres.keys():                # Drop all values below lowest signal
             if _scanres[_key][0] >= _threshold:
                 _temp_res[_key] = _scanres[_key][0]
@@ -240,7 +249,7 @@ class ScanSignals:
                 for _ke in _ra:
                     _temp.append(_scanres[_ke][0])
 
-                _array_weight = round((40 - list_avg(_temp)) * len(_temp), 2)
+                _array_weight = round((abs(_threshold) - list_avg(_temp)) * len(_temp))
                 _avg_res[_array_weight] = _ra
             log("", 9)
             log("_avg_res  " + str(_avg_res), 9)
