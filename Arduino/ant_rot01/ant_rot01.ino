@@ -90,11 +90,11 @@ float serv_N_angle;	// gemappter max angle
 float serv_N_ms;	// gemappter max microseconds
 //int serv_N_halfe_ms;	// gemappter max microseconds
 
-int LOOP_counter = 4;	// Start with INIT
+int LOOP_counter = 5;	// Start with INIT
 int heading_buffer, LCD_pitch_buffer, LCD_roll_buffer;
 //Serial Read Buffer
-String inString = "";    // string to hold input
-String SERIAL_inBuffer = "";
+String inString  = "";    // string to hold input
+String outString = "";	  // string to hold output
 // ----- Gyro
 #define MPU9250_I2C_address 0x68                                        // I2C address for MPU9250 
 #define MPU9250_I2C_master_enable 0x6A                                  // USER_CTRL[5] = I2C_MST_EN
@@ -707,21 +707,20 @@ float heading_overflow(float h_in) {
 void adjust_servos() {	
 	if(ADJUST) {
 		serv_max_angle = map(analogRead(Poti), 50, 1000, 200, 280 );
-		//Serial.println("ADJ: " + (String)serv_max_angle);
 		serv_min_angle = 180 - serv_max_angle / 2;
 		serv_max_angle = serv_min_angle + serv_max_angle;
 	}	
 	
-	//int map_val = map((Heading - Heading_buffer), serv_min_angle, serv_max_angle, SERV_MIN, SERV_MAX);
-	//Serial.println("1Heading: " + (String)Heading);
-	//Serial.println("2H_buffer: " + (String)H_buffer);
-	float temp_head = heading_overflow(Heading - H_buffer + serv_min_angle);
+	// !! float temp_head = heading_overflow(Heading - H_buffer + serv_min_angle );
+	float temp_head = (Heading - H_buffer + serv_min_angle);
 	//Serial.println("3temp_head: " + (String)temp_head);
 	// org int map_val = map(temp_head, serv_min_angle, serv_max_angle, SERV_MIN, SERV_MAX);
 	temp_head = map(temp_head, -360, 360, -serv_N_ms, serv_N_ms);
 	//int map_val = map(temp_head, 0, 360, 0, serv_N_ms);
 	//Serial.println("4map_val: " + (String)map_val);
-	int map_val = temp_head + serv_slowmv_val_buffer;  
+	// !! int map_val = temp_head + serv_slowmv_val_buffer;  
+	 
+	int map_val = int(temp_head + serv_slowmv_val_buffer) % int(serv_N_ms + 544);
 	//if(temp_val != serv_slowmv_val_buffer) {
 	//	temp_val = serv_slowmv_val_buffer;
 	//	Serial.println("SER  serv_slowmv_val_buffer" + (String)serv_slowmv_val_buffer);
@@ -730,7 +729,6 @@ void adjust_servos() {
 	//}
 	map_val		= max(map_val, SERV_MIN);  
 	map_val		= min(map_val, SERV_MAX);  
-	//Serial.println("5map_val 2 servo: " + (String)map_val);
 	servo1.writeMicroseconds(map_val);	
 }
 
@@ -738,9 +736,25 @@ void adjust_servos() {
 //  Send ACK end of received msg
 // --------------------------
 void send_ack() {
-	Serial.println("ACK " + (String)packet_flag);
+	addTo_outString("ACK " + (String)packet_flag);
 	inString 	= "";
 	packet_flag = -1;
+}
+// --------------------------
+//  Send outString byte per byte 
+// --------------------------
+void send_Serial() {
+	if(outString.length() != 0) {
+		
+		Serial.print(outString.charAt(0));
+		outString.remove(0, 1);
+	}
+	if(outString.length() > 10) LOOP_counter = 1; // prevent jaming outString
+}
+
+void addTo_outString(String in){
+	outString += in;
+	outString += '\n';
 }
 // --------------------------
 //  Main Loop - Get Serial - Adj Servo ...
@@ -764,23 +778,25 @@ switch (LOOP_counter) {
 	case 1: // ----- Send Heading if change
 		flag_1 = round(Heading);
 		if(flag_1 != heading_buffer) {
-			heading_buffer 	= flag_1; 		
-			Serial.println("HDG" + (String)Heading);
-			if(ADJUST) Serial.println("ADJ: " + (String)serv_max_angle);
+			heading_buffer 	= flag_1; 	
+			addTo_outString("HDG" + (String)Heading);
+			if(ADJUST) addTo_outString("ADJ: " + (String)serv_max_angle);
 		}
 		break;
+	
+	////////////////////// send Serial /////////////////////////
+	case 2:
+		send_Serial();
+		if(!init_ok) LOOP_counter++;
+    break;
 
 	/////////////////////// get Serial ///////////////////////////
 	// "new_servoval, new_servospeed, servo(obj)"
-	case 2: // ----- write Serial if available and Buffer free to Buffer
+	case 3: // ----- write Serial if available and Buffer free to Buffer
 		if(Serial.available() > 0) {
 			int stri = Serial.read();
 			
-			if(packet_flag == -1) {				
-				//if(DEBUG) {
-				//	Serial.println(" FLAG : " + (String)(char)stri);
-				//	Serial.println(" FLAG Int: " + (String)stri);
-				//}				
+			if(packet_flag == -1) {			
 				packet_flag = ((String)stri).toInt();
 			}else{
 				if (isDigit(stri)) {
@@ -795,10 +811,11 @@ switch (LOOP_counter) {
 						if(inString.toInt() == 1) {
 							init_ok = true;	
 							//if(DEBUG) Serial.println("Handshake complete ..");
+						
+							send_ack();
+							H_buffer = Heading;
+							addTo_outString("LH" + (String)H_buffer);	//gimbal lock heading
 						}
-						send_ack();
-						H_buffer = Heading;
-						Serial.println("LH" + (String)H_buffer);	//gimbal lock heading
 					}
 				break;				
 				case 65: 	// "A"	Servo Adjust on/off
@@ -809,41 +826,34 @@ switch (LOOP_counter) {
 							run_servo_adj = false;
 						}
 						send_ack();
-						if(DEBUG) {
-							Serial.println("Servo Adjust: " + (String)run_servo_adj);
-						}
+					
 					}
 				break;
 				case 66:	// "B"	Set H_buffer if not set in case 83
 					if(stri == '\n') {
 						H_buffer = Heading;							
 						// if(DEBUG) Serial.println("Set H_buffer: " + (String)H_buffer);						
+						Serial.println("Set Lock");
 						send_ack();
-						Serial.println("LH" + (String)H_buffer);	//gimbal lock heading
+						addTo_outString("LH" + (String)H_buffer);	//gimbal lock heading
 					}
 				break;
 				case 83:	// "S"  Servo Parameter	
 					if (stri == 'L') { // Set Gimbal Lock
 						H_buffer = Heading;
-						Serial.println("LH" + (String)H_buffer);	//gimbal lock heading
+						addTo_outString("LH" + (String)H_buffer);	//gimbal lock heading
 						inString = "";
 					}				
 					if (stri == ',') { // value
 						//new_servoval = map((inString.toInt() - 2000), -serv_N_halfe_angle, serv_N_halfe_angle, -serv_N_halfe_ms, serv_N_halfe_ms);				
 						new_servoval = map((inString.toInt() - 2000), -serv_N_angle, serv_N_angle, -serv_N_ms, serv_N_ms);				
 
-						//if(DEBUG) {
-						//	SERIAL_inBuffer += inString;
-						//	SERIAL_inBuffer += ",";
-						//}
+						
 						inString = "";
 					}
 					if (stri == ':') { // speed
 						new_servospeed = inString.toInt();			
-						//if(DEBUG) {					
-						//	SERIAL_inBuffer += inString;
-						//	SERIAL_inBuffer += ":";
-						//}
+						
 						inString = "";
 					}					
 					if (stri == '\n') {	// servo number
@@ -857,12 +867,7 @@ switch (LOOP_counter) {
 						}
 						// TODO Send ACK if Servo value is set
 						send_ack();									
-						//if(DEBUG){
-						//	Serial.println(servoList[0][0]);					
-						//	Serial.println(SERIAL_inBuffer);
-							//Serial.println(SERIAL_inBuffer.toInt());
-						//	SERIAL_inBuffer = "";						
-						//}
+					
 					}
 				break;
 				default:
@@ -876,11 +881,12 @@ switch (LOOP_counter) {
 				break;
 			}			
 		}	
+	if(!init_ok) LOOP_counter--;
 	break;
 		
 	////////////////////// Servo slow move /////////////////////////
 
-	case 3:		
+	case 4:		
 		if(servoList[0][1] != 1) {			
 			temp_servo_val = round(servoList[0][0] / 10);
 			temp_slow_val  = round(serv_slowmv_val_buffer / 10);
@@ -889,15 +895,10 @@ switch (LOOP_counter) {
 				if((micros() - serv_slowmv_timer_buffer) > pow(servoList[0][1], 2) ) {
 					if(temp_servo_val > temp_slow_val) {					
 						serv_slowmv_val_buffer += 10;
-						//if(DEBUG){	
-						//	Serial.println("ADJ+");
-						//}
-									
+							
 					}else{				
 						serv_slowmv_val_buffer -= 10;						
-						//if(DEBUG){						
-						//	Serial.println("ADJ-");	
-						//}						
+										
 					}	
 					serv_slowmv_timer_buffer = micros();
 				}
@@ -909,12 +910,12 @@ switch (LOOP_counter) {
 	break;
 
 	////////////////////// Init /////////////////////////
-	case 4:
+	case 5:
 		int foo = round(serv_max_angle);
 		int bar = round(serv_min_angle);
-		Serial.println("INITMIN" + (String)bar + "INITMAX"+ (String)foo + "HDG" + (String)Heading);
-		Serial.println("NANGLE" + (String)serv_N_angle);
-		Serial.println("NMS" + (String)serv_N_ms);
+		addTo_outString("INITMIN" + (String)bar + "INITMAX"+ (String)foo + "HDG" + (String)Heading);
+		// Serial.println("NANGLE" + (String)serv_N_angle);
+		// Serial.println("NMS" + (String)serv_N_ms);
 		//if(INIT_min and INIT_max) {	LOOP_counter = 0; }else{	LOOP_counter = 2;}
 		LOOP_counter = 2;
 		break;
