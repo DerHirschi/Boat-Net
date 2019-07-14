@@ -189,6 +189,39 @@ class ScanSignals:
         else:
             return False
 
+    def get_best_cell_hdg(self, _mode=1):
+        # _mode 1 = best Cell 3G/4G
+        # _mode 2 = best Cell 3G
+        # _mode 3 = best Cell 4G
+        _cells = {
+            1: self.sig_array_3G,
+            2: self.sig_array_3G,
+            3: self.sig_array_4G
+        }[_mode]
+        _cell_keys = sorted(_cells.keys(), reverse=True)
+
+        if _mode == 1:
+            _flag = self.sig_array_4G
+            _flag_keys = sorted(_flag.keys(), reverse=True)
+            if _cell_keys and _flag_keys:
+                if _flag_keys[0] > _cell_keys[0]:
+                    _mode = 3
+                    _cells = _flag
+                    _cell_keys = _flag_keys
+            elif not _cell_keys and not _flag_keys:
+                return None
+            elif not _cell_keys:
+                _cells = _flag
+                _cell_keys = _flag_keys
+        elif _mode == 2 and not _cell_keys:
+            return None
+        elif _mode == 3 and not _cell_keys:
+            return None
+        _scan_arr = _cells[_cell_keys[0]]
+        # log("_cell_keys " + str(_cell_keys), 9)
+        _mode = max(_mode, 2)
+        return self.get_peak_from_hgd_list(_scan_arr, _mode), _mode     # (signal, hdg), NetMode
+
     @staticmethod
     def get_peak(_scanres):
         _res, _key = None, None
@@ -251,8 +284,8 @@ class ScanSignals:
 
                 _array_weight = round((abs(_threshold) - list_avg(_temp)) * len(_temp))
                 _avg_res[_array_weight] = _ra
-            log("", 9)
-            log("_avg_res  " + str(_avg_res), 9)
+            # log("", 9)
+            # log("_avg_res  " + str(_avg_res), 9)
             self.set_sig_array_dict(_avg_res, _net_mode)  # set dict. Keys = weight, value = list of servo hdg for range
         else:
             self.set_sig_array_dict({}, _net_mode)  # or {} if no keys in scanres because all sig vals under threshold

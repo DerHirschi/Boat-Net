@@ -84,6 +84,9 @@ class Main:
 
     def init_scan(self):
         return ScanSignals(_lte_stick=self.lte, _ardu=self.ardu)
+# Main calls to get Servo val back:
+# main.scan.get_best_cell_hdg()
+# main.scan.get_peak()   < TODO has to change to 3G/4G
 
 
 main = Main(modem1)
@@ -145,6 +148,9 @@ if main.run_trigger:
                 log("_scan_arr 1 3 " + str(_scan_arr), 9)
                 if _scan_arr:
                     log("Peak HDG of Array 3" + str(main.scan.get_peak_from_hgd_list(_scan_arr, 3)))
+            log("get_best_cell_hdg 1" + str(main.scan.get_best_cell_hdg(_mode=1)), 9)
+            log("get_best_cell_hdg 2" + str(main.scan.get_best_cell_hdg(_mode=2)), 9)
+            log("get_best_cell_hdg 3" + str(main.scan.get_best_cell_hdg(_mode=3)), 9)
             log("Plot Signals 2", 9)
             main.web.plot_lte_signals(2)
             time.sleep(1)
