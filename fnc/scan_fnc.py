@@ -91,8 +91,54 @@ class ScanSignals:
         _hdg = self.arduino.heading - self.arduino.lock_hdg
         return int(map_val(_hdg, -360, 360, -self.N, self.N))
 
-    def set_servo_hdg(self, val):
-        self.arduino.set_servo(servo=1, _val=val)
+    def get_not_scanned_hdg(self, _net_mode, _threshold=None):
+        # Returns a array of hdg that are visible an not scanned
+        _scan_res = self.get_scanres_dict(_net_mode)
+        if len(_scan_res) >= self.N:
+            return []
+        _diff = self.get_hdg_diff_mapped()
+        _scan_res_keys = sorted(_scan_res.keys())
+        if _scan_res_keys:
+            _high_hdg = _scan_res_keys[-1]
+            _low_hdg = _scan_res_keys[0]
+            if not _threshold:
+                _threshold = round((self.N - self.val_range) / 4)
+            _thres_high = overflow_value((_threshold + _high_hdg - self.val_range), self.N)
+            _thres_low = overflow_value((_threshold - _low_hdg), self.N)
+            print("_thres_high " + str(_thres_high))
+            print("_thres_low " + str(_thres_low))
+            print("_threshold " + str(_threshold))
+            print("_diff " + str(_diff))
+            if _diff > 0 and _diff > _thres_high:
+                _c = (self.val_range - _diff) - _high_hdg
+                print("_c > 0  " + str(_c))
+                _i = _high_hdg + 1
+                _ret = []
+                for n in range(_c):
+                    _temp = overflow_value(_i, self.N)
+                    if _temp not in _scan_res:
+                        _ret.append(_temp)
+                        _i += 1
+                return _ret, _net_mode
+            elif _diff < -_thres_low:
+                _c = abs(_diff) - _low_hdg
+                print("_c <= 0  " + str(_c))
+                _i = _low_hdg - 1
+                _ret = []
+                for n in range(_c):
+                    _temp = overflow_value(_i, self.N)
+                    if _temp not in _scan_res:
+                        _ret.append(_temp)
+                        _i -= 1
+                return _ret, _net_mode            # Returns a array of hdg that are visible an not scanned
+        return [], _net_mode
+
+    def set_servo_hdg(self, _val):
+        try:
+            self.arduino.set_servo(servo=1, _val=_val, _speed=2, wait_servo_confirm=True)
+        except ConnectionError:
+            self.arduino.run_trigger = False
+            self.run_trigger = False
 
     def scan_full_range(self, _resolution=24, _loop=None, _duration=5):
         _val = 0
@@ -113,7 +159,7 @@ class ScanSignals:
                 if (-_n_low + _n) >= _dif:
                     break
             self.set_servo_hdg(_val)
-            time.sleep(0.1)
+            # time.sleep(0.1)
             self.get_lte_signals_avg(_duration=_duration, _hdg=_val, _resolution=_resolution)
             _n += _step
 

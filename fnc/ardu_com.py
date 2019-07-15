@@ -127,21 +127,28 @@ class ArduCom:
         while self.ack != -1:
             if not self.run_trigger:
                 break
-        try:
-            self.ser.write(bytes((flag + out_string + '\n'), 'utf-8'))
-        except serial.SerialException:
-            print("Error write to Arduion ...")
-            self.run_trigger = False
-        _e_count = 0
-        while self.ack != flag:
-            if not self.run_trigger or _e_count >= 30:
-                print("ERROR: NO ACK in 6 sec")
-                return False
-            time.sleep(0.2)
-            _e_count += 1
+        for e in range(3):
+            try:
+                self.ser.write(bytes((flag + out_string + '\n'), 'utf-8'))
+            except serial.SerialException:
+                print("Error write to Arduion ...")
+                self.run_trigger = False
+                raise ConnectionError
+            _e_count = 0
+            while self.ack != flag:
+                if not self.run_trigger or _e_count >= 30:
+                    print("ERROR: NO ACK in 3 sec")
+                    break
+                time.sleep(0.1)
+                _e_count += 1
+            if self.ack == flag:
+                self.ack = -1
+                return True
 
         self.ack = -1
-        return True
+        print("ERROR: NO ACK with 3 trys")
+        self.run_trigger = False
+        raise ConnectionError
 
     def set_servo(self, servo=1, _val=512, _speed=1, new_gimbal_lock=False, wait_servo_confirm=False):
         flag = 'S'      # 'S' = 83
@@ -152,7 +159,12 @@ class ArduCom:
             out += 'L'
         out += '{},{}:{}'.format((_val + 2000), _speed, servo)     # val+2000 to get - values
         self.servo_val = _val
-        _ret = self.send_w_ack(flag, out)
+        try:
+            self.send_w_ack(flag, out)
+        except ConnectionError:
+            self.run_trigger = False
+            return False
+
         if wait_servo_confirm:
             _e_count = 0
             while not self.sac and self.run_trigger:
@@ -164,7 +176,7 @@ class ArduCom:
                 else:
                     print("ERROR: NO SAC in 30 sec")
                     return False
-        return _ret
+        return True
 
     def toggle_servos(self, switch=None):  # Servo toggle ( on/off Servo Gimbal on Ardu)
         flag = 'A'      # 'A' = 65

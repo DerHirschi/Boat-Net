@@ -82,6 +82,46 @@ class Main:
 
     def init_scan(self):
         return ScanSignals(_lte_stick=self.lte, _ardu=self.ardu)
+
+    def mode_marina(self):
+        # Moored boat at the marina without hdg changes
+        # No GPS POS changed
+        # Scan just passive after active scan
+        # set self.ardu.toggle_servos(False) .. Antenna doesnt need to adjust
+        # very slow servo adjustments because of noise
+        # can use self.scan.get_peak() for get Antenna direction
+        # get Signals all 30 sec or more
+        # if Signal get lower than threshold switch to self.scan.get_best_cell_hdg() and get best cell
+        # TODO get calculated Antenna pos back for scans (because Antenna is no more gimbaled)
+        #  > self.ardu.toggle_servos(False)
+        pass
+
+    def mode_anchor(self):
+        # Boat has dropped anchor .. HDG can changed
+        # No GPS POS changed
+        # set self.ardu.toggle_servos(True)
+        # slow servo adjustments because of noise
+        # can use self.scan.get_best_cell_hdg() for get Antenna direction
+        # Scan ( continuous all 30 - 60 sec) after active scan
+        # if none scanned array is visible ( HDG has changed ), scan it
+        # TODO calculate if none visible direction is reachable
+        # if active cell get badder, switch to next visible cell
+        pass
+
+    def mode_trip(self):
+        # Boat is on trip .. HDG and Pos changed
+        # set self.ardu.toggle_servos(True)
+        # fast adjustments
+        # Scan ( continuous all 5 - 15 sec ) after active scan
+        # can use self.scan.get_best_cell_hdg() for get Antenna direction
+        # if cell get badder scan slowly offset direction + and - org hdg
+        # TODO offset scanning fnc
+        # if none scanned array is visible ( HDG has changed ), scan it
+        # if offset scanning results badder signals for cell, switch cell and go back to scanning
+        # if no more cells available, make a new full scan
+        # maybe a full scan all 1 - 2 km ??
+        pass
+
 # Main calls to get Servo val back:
 # main.scan.get_best_cell_hdg()
 # main.scan.get_peak()   < TODO has to change to 3G/4G
