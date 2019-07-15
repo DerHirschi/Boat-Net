@@ -695,9 +695,25 @@ void read_mpu_6050_data()
 
 
 // ----- Allow for under/overflow
+/*
 float heading_overflow(float h_in) {
   float res = float(int(h_in * 100) % 36000) / 100;
 	return res;
+}
+*/
+float heading_overflow(float h_in) {	
+	if (h_in >= 360) { 
+		h_in -= 360;    
+    //Serial.println("DEB1 - " + (String)h_in);
+    // String st = (String)h_in; // LOL .. WHY ?? whitout this, it dosn t work..
+		
+	}
+	if (h_in < 0) {		
+		h_in +=  360;
+		//Serial.println("DEB1 + " + (String)h_in);
+		
+	}		
+  return h_in;
 }
 
 // -------------------------------
@@ -720,7 +736,8 @@ void adjust_servos() {
 	//Serial.println("4map_val: " + (String)map_val);
 	// !! int map_val = temp_head + serv_slowmv_val_buffer;  
 	 
-	int map_val = int(temp_head + serv_slowmv_val_buffer) % int(serv_N_ms + 544);
+	// int map_val = int(temp_head + serv_slowmv_val_buffer) % int(serv_N_ms + 544);
+	int map_val = int(temp_head + serv_slowmv_val_buffer) % int(serv_N_ms);
 	//if(temp_val != serv_slowmv_val_buffer) {
 	//	temp_val = serv_slowmv_val_buffer;
 	//	Serial.println("SER  serv_slowmv_val_buffer" + (String)serv_slowmv_val_buffer);
