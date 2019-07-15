@@ -91,47 +91,32 @@ class ScanSignals:
         _hdg = self.arduino.heading - self.arduino.lock_hdg
         return int(map_val(_hdg, -360, 360, -self.N, self.N))
 
-    def get_not_scanned_hdg(self, _net_mode, _threshold=None):
+    def get_visible_hdg(self):
+        _dif = -self.get_hdg_diff_mapped()
+        if _dif <= 0:
+            _dif = -_dif
+        _hdg_max = overflow_value(_dif + round(self.val_range + 1), self.N)
+        _hdg_min = overflow_value(_dif, self.N)
+        _res = []
+        for _i in range(self.val_range):
+            if _dif > 0:
+                _res.append(overflow_value(_hdg_max - _i, self.N))
+            else:
+                _res.append(overflow_value(_hdg_min + _i, self.N))
+        return _res
+
+    def get_not_scanned_vis_hdg(self, _net_mode):
         # Returns a array of hdg that are visible an not scanned
         _scan_res = self.get_scanres_dict(_net_mode)
+        _vis_range = self.get_visible_hdg()
+        _res = []
         if len(_scan_res) >= self.N:
-            return []
-        _diff = self.get_hdg_diff_mapped()
-        _scan_res_keys = sorted(_scan_res.keys())
-        if _scan_res_keys:
-            _high_hdg = _scan_res_keys[-1]
-            _low_hdg = _scan_res_keys[0]
-            if not _threshold:
-                _threshold = round((self.N - self.val_range) / 4)
-            _thres_high = overflow_value((_threshold + _high_hdg - self.val_range), self.N)
-            _thres_low = overflow_value((_threshold - _low_hdg), self.N)
-            print("_thres_high " + str(_thres_high))
-            print("_thres_low " + str(_thres_low))
-            print("_threshold " + str(_threshold))
-            print("_diff " + str(_diff))
-            if _diff > 0 and _diff > _thres_high:
-                _c = (self.val_range - _diff) - _high_hdg
-                print("_c > 0  " + str(_c))
-                _i = _high_hdg + 1
-                _ret = []
-                for n in range(_c):
-                    _temp = overflow_value(_i, self.N)
-                    if _temp not in _scan_res:
-                        _ret.append(_temp)
-                        _i += 1
-                return _ret, _net_mode
-            elif _diff < -_thres_low:
-                _c = abs(_diff) - _low_hdg
-                print("_c <= 0  " + str(_c))
-                _i = _low_hdg - 1
-                _ret = []
-                for n in range(_c):
-                    _temp = overflow_value(_i, self.N)
-                    if _temp not in _scan_res:
-                        _ret.append(_temp)
-                        _i -= 1
-                return _ret, _net_mode            # Returns a array of hdg that are visible an not scanned
-        return [], _net_mode
+            log("No more hidden cells !!", 9)
+            return _res, _net_mode
+        for _i in _vis_range:
+            if _i not in _scan_res:
+                _res.append(_i)
+        return _res, _net_mode
 
     def set_servo_hdg(self, _val):
         try:
@@ -180,7 +165,7 @@ class ScanSignals:
         if _timer != -1:
             ti = time.time()
             while self.run_trigger and self.arduino.run_trigger:
-                print("Timed Thread")
+                log("Timed Thread", 9)
                 self.scan_full_range(_resolution=_resolution, _loop=_lo, _duration=_lte_duration)
                 self.get_signal_arrays(_net_mode)                           # Calculate Signal Arrays
                 if _lo:
@@ -328,7 +313,7 @@ class ScanSignals:
                 for _ke in _ra:
                     _temp.append(_scanres[_ke][0])
 
-                _array_weight = round((abs(_threshold) - list_avg(_temp)) * len(_temp))
+                _array_weight = round((abs(_threshold) - abs(list_avg(_temp))) * len(_temp))
                 _avg_res[_array_weight] = _ra
             # log("", 9)
             # log("_avg_res  " + str(_avg_res), 9)

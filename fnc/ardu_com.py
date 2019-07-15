@@ -92,7 +92,6 @@ class ArduCom:
                 # parsing
                 ser_buffer = ser_buffer.decode('UTF-8')
                 threading.Thread(target=self.parse_in_packet, args=(ser_buffer, )).start()
-                # self.parse_in_packet(ser_buffer.decode('UTF-8'))
                 ser_buffer = b''
             else:
                 ser_buffer += temp_buffer
@@ -123,25 +122,25 @@ class ArduCom:
         else:
             print("Ardu: {}".format(buffer_in))
 
-    def send_w_ack(self, flag, out_string):
+    def send_w_ack(self, _flag, _out_string):
         while self.ack != -1:
             if not self.run_trigger:
                 break
-        for e in range(3):
+        for _e in range(3):
             try:
-                self.ser.write(bytes((flag + out_string + '\n'), 'utf-8'))
+                self.ser.write(bytes((_flag + _out_string + '\n'), 'utf-8'))
             except serial.SerialException:
                 print("Error write to Arduion ...")
                 self.run_trigger = False
                 raise ConnectionError
             _e_count = 0
-            while self.ack != flag:
-                if not self.run_trigger or _e_count >= 30:
+            while self.ack != _flag:
+                if not self.run_trigger or _e_count >= 300:
                     print("ERROR: NO ACK in 3 sec")
                     break
-                time.sleep(0.1)
+                time.sleep(0.01)
                 _e_count += 1
-            if self.ack == flag:
+            if self.ack == _flag:
                 self.ack = -1
                 return True
 

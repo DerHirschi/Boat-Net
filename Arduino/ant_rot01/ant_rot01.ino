@@ -89,6 +89,8 @@ float serv_N_angle;	// gemappter max angle
 //int serv_N_halfe_angle;	// gemappter max angle
 float serv_N_ms;	// gemappter max microseconds
 //int serv_N_halfe_ms;	// gemappter max microseconds
+bool lock_trigger = false;
+
 
 int LOOP_counter = 5;	// Start with INIT
 int heading_buffer, LCD_pitch_buffer, LCD_roll_buffer;
@@ -859,33 +861,34 @@ switch (LOOP_counter) {
 					if(stri == '\n') {
 						H_buffer = Heading;							
 						// if(DEBUG) Serial.println("Set H_buffer: " + (String)H_buffer);						
-						Serial.println("Set Lock");
+						// Serial.println("Set Lock");
 						send_ack();
 						addTo_outString("LH" + (String)H_buffer);	//gimbal lock heading
 					}
 				break;
 				case 83:	// "S"  Servo Parameter	
 					if (stri == 'L') { // Set Gimbal Lock
-						H_buffer = Heading;
-						addTo_outString("LH" + (String)H_buffer);	//gimbal lock heading
+						lock_trigger = true;
 						inString = "";
 					}				
 					if (stri == ',') { // value
 						//new_servoval = map((inString.toInt() - 2000), -serv_N_halfe_angle, serv_N_halfe_angle, -serv_N_halfe_ms, serv_N_halfe_ms);				
 						new_servoval = map((inString.toInt() - 2000), -serv_N_angle, serv_N_angle, -serv_N_ms, serv_N_ms);				
-
-						
 						inString = "";
 					}
 					if (stri == ':') { // speed
 						new_servospeed = inString.toInt();			
-						
 						inString = "";
 					}					
 					if (stri == '\n') {	// servo number
 						int serv = (inString.toInt() - 1);						
 						servoList[serv][1] = new_servospeed;
 						servoList[serv][0] = new_servoval;
+						if(lock_trigger) {
+							H_buffer = Heading;	
+							addTo_outString("LH" + (String)H_buffer);
+							lock_trigger = false;
+						}
 						if(new_servospeed == 1) {
 							serv_slowmv_val_buffer = new_servoval;
 							LOOP_counter = 0;
