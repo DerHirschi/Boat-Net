@@ -16,6 +16,8 @@ class LTEStick:
             print("Connection2Modem Error ...")
             raise ConnectionError
 
+        self.net_mode = self.get_net_mode()
+
     def get_int(self, value):
         if value is None:
             return None
@@ -69,7 +71,12 @@ class LTEStick:
         return False
 
     def get_net_mode(self):
-        return self.client.net.net_mode()
+        return {
+            '00': 0,    # Auto
+            '01': 1,    # 2G
+            '02': 2,    # 3G
+            '07': 3     # 4G
+        }[self.client.net.net_mode()['NetworkMode']]
 
     def get_net_mode_list(self):
         return self.client.net.net_mode_list()
@@ -106,6 +113,7 @@ class LTEStick:
                     e_c += 1
 
                 # print("New Net-Mode set: " + str(net_mode))
+                self.net_mode = int(net_mode)
                 return net_mode
             except Exception:
                 print("Error.. while trying to set Net Mode ..")
