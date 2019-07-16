@@ -171,6 +171,22 @@ def overflow_value(_val, _overflow=1024):
     return _val % _overflow
 
 
+def list_parts(_in_list):
+    # returns lists of contiguous rows of numbers in incoming list
+    _ret = [[]]
+    _t = min(_in_list)
+    _i_count = 0
+    for _i in sorted(_in_list):
+        if _i == _t:
+            _ret[_i_count].append(_i)
+            _t += 1
+        else:
+            _ret.append([_i])
+            _i_count += 1
+            _t = _i + 1
+    return _ret
+
+
 def list_avg(_in_list):
     # source: https://www.geeksforgeeks.org/find-average-list-python/
     return sum(_in_list) / len(_in_list)
@@ -187,4 +203,5 @@ def map_val(_sensor_val, _in_min, _in_max, _out_min, _out_max):
 
 
 if __name__ == '__main__':
-    print(overflow_int(256))
+    _test = [122, 123, 124, 125, 126, 1, 2, 5, 6, 7, 8, 9, 11, 12, 14, 15, 16, 17, 18, 19]
+    print(list_parts(_test))

@@ -151,7 +151,7 @@ class Data2Web:
         # _radii_array = self.radii_array every irritation but doesnt wor .. hmpf
         # solution: Plot in bars not filled
         # FIXME END
-        _sig_array_dict = self.scan.get_signal_arrays(_net_mode)
+        _sig_array_dict = self.scan.get_cells(_net_mode)
 
         def _get_mode_config(_n_mo):
             return {

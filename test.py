@@ -14,14 +14,15 @@ if main.run_trigger:
 
     time.sleep(1)
     main.ardu.toggle_servos(True)
-    main.ardu.set_servo(_val=1000, _speed=250, wait_servo_confirm=True)
+    main.ardu.set_servo(_val=1000, _speed=150, wait_servo_confirm=True)
     try:
 
         # while main.run_trigger:
         if main.ardu.run_trigger:
 
             try:
-                main.scan.scan_cycle(_resolution=32, _lte_duration=5, _duration=2, _net_mode=0)
+                # main.scan.scan_cycle(_resolution=32, _lte_duration=5, _duration=2, _net_mode=0)
+                print("")
             except ConnectionError:
             # while True:
             #     print(main.lte.get_string())
@@ -31,7 +32,24 @@ if main.run_trigger:
                 main.run_trigger = False
             # main.scan.get_signal_peak_in_range(main.scan.scanres3G, -10)
             # main.scan.get_signal_peak_in_range(main.scan.scanres4G, -6)
+            _n = []
+            _i = 0
+            for _in in range(200):
+                _n.append(_i)
+                _i += 1
+            _i = 500
+            for _in in range(300):
+                _n.append(_i)
+                _i += 1
 
+            main.scan.scan_hdg_range(_n, 2, _servo_speed=100)
+
+            _n = []
+            _i = 700
+            for _in in range(300):
+                _n.append(_i)
+                _i += 1
+            main.scan.scan_hdg_range(_n, 3, _servo_speed=100)
             log("", 9)
             log("", 9)
             log("", 9)
@@ -47,9 +65,9 @@ if main.run_trigger:
             log("", 9)
             log("", 9)
             log("", 9)
-            log("sig_array_3G keys  > " + str(sorted(main.scan.sig_array_3G.keys())), 9)
+            log("sig_array_3G keys  > " + str(sorted(main.scan.cells_3G.keys())), 9)
             log("", 9)
-            log("sig_array_4G keys  > " + str(sorted(main.scan.sig_array_4G.keys())), 9)
+            log("sig_array_4G keys  > " + str(sorted(main.scan.cells_4G.keys())), 9)
             log("", 9)
             log("", 9)
             log("", 9)

@@ -1,6 +1,6 @@
 import time
 import threading
-from etc.var import overflow_value, list_avg, map_val
+from etc.var import overflow_value, list_avg, map_val, list_parts
 from etc.log import log
 
 
@@ -10,8 +10,8 @@ class ScanSignals:
         self.arduino = _ardu
         self.scanres3G = {}
         self.scanres4G = {}
-        self.sig_array_3G = {}
-        self.sig_array_4G = {}
+        self.cells_3G = {}
+        self.cells_4G = {}
         self.threshold_3G = -15
         self.threshold_4G = -15
         self.plmn_list = []
@@ -20,6 +20,9 @@ class ScanSignals:
         # Plot Init #
         self.val_range = 1023
         self.N = int(self.val_range / (self.arduino.servo_max_angle - self.arduino.servo_min_angle) * 360)
+
+    def calc_steps(self, _resolution):
+        return int(self.val_range / (_resolution + 1))
 
     def get_scanres_dict(self, _net_mode):
         return {
@@ -36,15 +39,15 @@ class ScanSignals:
 
     def get_sig_array_dict(self, _net_mode):
         return {
-            2: self.sig_array_3G,
-            3: self.sig_array_4G,
+            2: self.cells_3G,
+            3: self.cells_4G,
         }[_net_mode]
 
     def set_sig_array_dict(self, _res, _net_mode):
         if _net_mode == 2:
-            self.sig_array_3G = _res
+            self.cells_3G = _res
         elif _net_mode == 3:
-            self.sig_array_4G = _res
+            self.cells_4G = _res
 
     def get_plmn_list(self):
         _plmn_list = self.lte_stick.get_plmn_list()
@@ -66,10 +69,11 @@ class ScanSignals:
 
         if _temp_sig[3] in [2, 7]:
             if None not in _temp_sig:
-                _range_begin = int(_resolution / 2)
+                _steps = self.calc_steps(_resolution)
+                _range_begin = int(_steps / 2)
                 _temp_res = self.get_scanres_dict(_temp_sig[3])
 
-                for z in range(_resolution - 1):
+                for z in range(_steps + 1):
                     _i = (_hdg - _range_begin + z)
                     _i = overflow_value(_i, self.N)
                     if _i in _temp_res:       # Calculate average for each founded value
@@ -118,18 +122,31 @@ class ScanSignals:
                 _res.append(_i)
         return _res, _net_mode
 
-    def set_servo_hdg(self, _val):
+    def set_servo_hdg(self, _val, _speed=2):
         try:
-            self.arduino.set_servo(servo=1, _val=_val, _speed=2, wait_servo_confirm=True)
+            self.arduino.set_servo(servo=1, _val=_val, _speed=_speed, wait_servo_confirm=True)
         except ConnectionError:
             self.arduino.run_trigger = False
             self.run_trigger = False
 
-    def scan_full_range(self, _resolution=24, _loop=None, _duration=5):
+    def scan_hdg_range(self, _hdg_list, _net_mode, _servo_speed=2, _resolution=32, _lte_duration=5):
+        _step = self.calc_steps(_resolution)
+        _hdg_list = list_parts(_hdg_list)
+        self.lte_stick.set_net_mode(_net_mode)
+        for _el in _hdg_list:
+            _n_start = min(_el)
+            _n_stop = max(_el)
+            while _n_start <= _n_stop:
+                self.set_servo_hdg(_n_start, _servo_speed)
+                self.get_lte_signals_avg(_duration=_lte_duration, _hdg=_n_start, _resolution=_resolution)
+                _n_start += _step
+        self.get_cells(_net_mode)
+
+    def scan_full_range(self, _resolution=32, _servo_speed=2, _duration=5, _loop=None):
         _val = 0
         _n = 0
         _n_max = self.val_range
-        _step = int(_n_max / (_resolution + 1))
+        _step = self.calc_steps(_resolution)
         _n_high = -self.get_hdg_diff_mapped() + _n_max  # if loop:
         _n_low = self.get_hdg_diff_mapped()            # if not loop:
         while _n <= self.N and self.run_trigger:
@@ -143,8 +160,7 @@ class ScanSignals:
                 _val = -_n_low + _n
                 if (-_n_low + _n) >= _dif:
                     break
-            self.set_servo_hdg(_val)
-            # time.sleep(0.1)
+            self.set_servo_hdg(_val, _servo_speed)
             self.get_lte_signals_avg(_duration=_duration, _hdg=_val, _resolution=_resolution)
             _n += _step
 
@@ -167,7 +183,7 @@ class ScanSignals:
             while self.run_trigger and self.arduino.run_trigger:
                 log("Timed Thread", 9)
                 self.scan_full_range(_resolution=_resolution, _loop=_lo, _duration=_lte_duration)
-                self.get_signal_arrays(_net_mode)                           # Calculate Signal Arrays
+                self.get_cells(_net_mode)                           # Calculate Signal Arrays
                 if _lo:
                     _lo = False
                 else:
@@ -194,7 +210,7 @@ class ScanSignals:
                     break
                 log("Scan Nr: " + str(n), 9)
                 self.scan_full_range(_resolution=_resolution, _loop=_lo)
-                self.get_signal_arrays(_net_mode)                           # Calculate Signal Arrays
+                self.get_cells(_net_mode)                           # Calculate Signal Arrays
                 if _lo:
                     _lo = False
                 else:
@@ -225,14 +241,14 @@ class ScanSignals:
         # _mode 2 = best Cell 3G
         # _mode 3 = best Cell 4G
         _cells = {
-            1: self.sig_array_3G,
-            2: self.sig_array_3G,
-            3: self.sig_array_4G
+            1: self.cells_3G,
+            2: self.cells_3G,
+            3: self.cells_4G
         }[_mode]
         _cell_keys = sorted(_cells.keys(), reverse=True)
 
         if _mode == 1:
-            _flag = self.sig_array_4G
+            _flag = self.cells_4G
             _flag_keys = sorted(_flag.keys(), reverse=True)
             if _cell_keys and _flag_keys:
                 if _flag_keys[0] > _cell_keys[0]:
@@ -274,7 +290,7 @@ class ScanSignals:
                 _res = _flag
         return _res                                         # signal, hdg_key
 
-    def get_signal_arrays(self, _net_mode, _threshold=-15):
+    def get_cells(self, _net_mode, _threshold=-15):
         # TODO call this() after complete scan cycle or after one shot scan ( extra fnc for onh shot )
         # signal threshold: 4G/RSRQ  = -15
         # signal threshold: 3G/EC/IO = -15
