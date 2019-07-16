@@ -1,6 +1,7 @@
 from config import lte_stick_addi_1 as modem1
 from main import Main
 from etc.log import log
+from etc.var import list_parts
 import time
 import threading
 
@@ -43,6 +44,12 @@ if main.run_trigger:
                 _i += 1
 
             main.scan.scan_hdg_range(_n, 2, _servo_speed=100)
+            log("", 9)
+            log("len scanres3G arrays " + str(len(list_parts(sorted(main.scan.scanres3G.keys())))), 9)
+            log("", 9)
+            log("scanres3G arrays " + str(list_parts(sorted(main.scan.scanres3G.keys()))), 9)
+
+            log("", 9)
 
             _n = []
             _i = 700
@@ -65,15 +72,15 @@ if main.run_trigger:
             log("", 9)
             log("", 9)
             log("", 9)
-            log("sig_array_3G keys  > " + str(sorted(main.scan.cells_3G.keys())), 9)
+            # log("sig_array_3G keys  > " + str(sorted(main.scan.cells_3G.keys())), 9)
             log("", 9)
-            log("sig_array_4G keys  > " + str(sorted(main.scan.cells_4G.keys())), 9)
+            # log("sig_array_4G keys  > " + str(sorted(main.scan.cells_4G.keys())), 9)
             log("", 9)
             log("", 9)
             log("", 9)
-            log("get_not_scanned_hdg 2 > " + str(main.scan.get_not_scanned_vis_hdg(2)), 9)
+            # log("get_not_scanned_hdg 2 > " + str(main.scan.get_not_scanned_vis_hdg(2)), 9)
             log("", 9)
-            log("get_not_scanned_hdg 3 > " + str(main.scan.get_not_scanned_vis_hdg(3)), 9)
+            # log("get_not_scanned_hdg 3 > " + str(main.scan.get_not_scanned_vis_hdg(3)), 9)
             log("", 9)
             log("", 9)
 

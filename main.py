@@ -98,13 +98,12 @@ class Main:
 
     def mode_anchor(self):
         # Boat has dropped anchor .. HDG can changed
-        # No GPS POS changed
+        # TODO No GPS POS changed
         # set self.ardu.toggle_servos(True)
         # slow servo adjustments because of noise
         # can use self.scan.get_best_cell_hdg() for get Antenna direction
         # Scan ( continuous all 30 - 60 sec) after active scan
         # if none scanned array is visible ( HDG has changed ), scan it
-        # TODO calculate if none visible direction is reachable
         # if active cell get badder, switch to next visible cell
         pass
 

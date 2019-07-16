@@ -28,7 +28,6 @@ class ScanSignals:
         return {
             2: self.scanres3G,
             3: self.scanres4G,
-            7: self.scanres4G       # needed in get_lte_signals_avg()
         }[_net_mode]
 
     def get_threshold(self, _net_mode):
@@ -56,8 +55,9 @@ class ScanSignals:
             _res.append(_net['FullName'])
         self.plmn_list = _res
 
-    def get_lte_signals_avg(self, _hdg, _resolution, _duration=5):
+    def get_lte_signals_avg(self, _hdg, _resolution, _net_mode, _duration=5):
         _temp_sig = [0, 0, 0, 0]
+        log("get_lte_signals_avg STARTED hdg " + str(_hdg), 9)
         for _n in range(_duration):       # Get average of scan values
             _sigs = self.lte_stick.get_string()
             if _sigs:
@@ -67,14 +67,14 @@ class ScanSignals:
                     if _sigs[3]:
                         _temp_sig[3] = _sigs[3]
 
-        if _temp_sig[3] in [2, 7]:
-            if None not in _temp_sig:
-                _steps = self.calc_steps(_resolution)
-                _range_begin = int(_steps / 2)
-                _temp_res = self.get_scanres_dict(_temp_sig[3])
+        if _temp_sig[3] in [2, 7]:      # FIXME !!! Don´t know the modes that LTE stick returns
+            _steps = self.calc_steps(_resolution)
+            _range_begin = int(_steps / 2)
+            _temp_res = self.get_scanres_dict(_net_mode)
 
-                for z in range(_steps + 1):
-                    _i = (_hdg - _range_begin + z)
+            for _z in range(_steps + 1):
+                if None not in _temp_sig:
+                    _i = (_hdg - _range_begin + _z)
                     _i = overflow_value(_i, self.N)
                     if _i in _temp_res:       # Calculate average for each founded value
                         for _ind in range(3):
@@ -83,12 +83,12 @@ class ScanSignals:
                         _temp_res[_i] = [round((_temp_sig[0] / _duration), 2),
                                          round((_temp_sig[1] / _duration), 2),
                                          round((_temp_sig[2] / _duration), 2)]
-            else:
-                _temp_res = [None, None, None, _temp_sig[3]]
+                else:
+                    _temp_res = [None, None, None, _temp_sig[3]]
 
-            if _temp_sig[3] == 2:
+            if _net_mode == 2:
                 self.scanres3G = _temp_res
-            elif _temp_sig[3] == 7:
+            elif _net_mode == 7:
                 self.scanres4G = _temp_res
 
     def get_hdg_diff_mapped(self):
@@ -138,7 +138,7 @@ class ScanSignals:
             _n_stop = max(_el)
             while _n_start <= _n_stop:
                 self.set_servo_hdg(_n_start, _servo_speed)
-                self.get_lte_signals_avg(_duration=_lte_duration, _hdg=_n_start, _resolution=_resolution)
+                self.get_lte_signals_avg(_duration=_lte_duration, _hdg=_n_start, _resolution=_resolution, _net_mode=_net_mode)
                 _n_start += _step
         self.get_cells(_net_mode)
 
@@ -292,6 +292,7 @@ class ScanSignals:
 
     def get_cells(self, _net_mode, _threshold=-15):
         # TODO call this() after complete scan cycle or after one shot scan ( extra fnc for onh shot )
+        # FIXME hdg overflow is calculated as an own cell
         # signal threshold: 4G/RSRQ  = -15
         # signal threshold: 3G/EC/IO = -15
         _scanres = self.get_scanres_dict(_net_mode)
