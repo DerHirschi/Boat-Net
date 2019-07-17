@@ -190,10 +190,10 @@ class Main:
 
                     _le = int(round((self.scan.N - _le) / 3))
                     _vis_hdg_not_scan = self.scan.get_not_scanned_vis_hdg(self.lte.net_mode)
-                    print("not scanned vis   " + str(_vis_hdg_not_scan))
+                    # print("not scanned vis   " + str(_vis_hdg_not_scan))
                     # FIXME .. something is wrong here .. but .. sunrise = bedtime
                     if len(_vis_hdg_not_scan) > _le:        # if more than 1/3 of not scanned array is visible, scan it
-                        print("more than 1/3 vis")
+                        # print("more than 1/3 vis")
                         self.scan.scan_hdg_range(_vis_hdg_not_scan,
                                                  self.lte.net_mode,
                                                  cell_speed,
