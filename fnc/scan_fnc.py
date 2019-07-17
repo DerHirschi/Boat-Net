@@ -97,17 +97,11 @@ class ScanSignals:
 
     def get_visible_hdg(self):
         _dif = -self.get_hdg_diff_mapped()
-        if _dif <= 0:
-            _dif = -_dif
-        _hdg_max = overflow_value(_dif + round(self.val_range + 1), self.N)
         _hdg_min = overflow_value(_dif, self.N)
         _res = []
         for _i in range(self.val_range):
-            if _dif > 0:
-                _res.append(overflow_value(_hdg_max - _i, self.N))
-            else:
-                _res.append(overflow_value(_hdg_min + _i, self.N))
-        return _res
+            _res.append(overflow_value(_hdg_min + _i, self.N))
+        return _res                     # Returns a list of hdg
 
     def get_not_scanned_vis_hdg(self, _net_mode):
         # Returns a array of hdg that are visible an not scanned
@@ -134,11 +128,13 @@ class ScanSignals:
         _hdg_list = list_parts(_hdg_list)
         self.lte_stick.set_net_mode(_net_mode)
         for _el in _hdg_list:
-            _n_start = min(_el)
-            _n_stop = max(_el)
+            _vis_list = self.vis_hdg_of_list(_el)
+            _n_start = min(_vis_list)
+            _n_stop = max(_vis_list)
             while _n_start <= _n_stop:
-                self.set_servo_hdg(_n_start, _servo_speed)
-                self.get_lte_signals_avg(_duration=_lte_duration, _hdg=_n_start, _resolution=_resolution)
+                if self.check_if_in_vis_hdg(_n_start):
+                    self.set_servo_hdg(_n_start, _servo_speed)
+                    self.get_lte_signals_avg(_duration=_lte_duration, _hdg=_n_start, _resolution=_resolution)
                 _n_start += _step
         self.get_cells(_net_mode)
 
@@ -309,14 +305,14 @@ class ScanSignals:
                 return None
             elif _mode == 3 and not _cell_keys:
                 return None
-            _scan_arr = _cells[_cell_keys[_flag_excl]]
+            _cell_list = _cells[_cell_keys[_flag_excl]]
             # log("_cell_keys " + str(_cell_keys), 9)
             _mode = max(_mode, 2)
-            _hdg = self.get_peak_from_hgd_list(_scan_arr, _mode)[1]
+            _hdg = self.get_peak_from_hgd_list(_cell_list, _mode)[1]
             if self.check_if_in_vis_hdg(_val=_hdg):
                 return _hdg, _mode, _cell_keys[_flag_excl]     # hdg , NetMode, CellKey
             else:
-                for _i in _scan_arr:
+                for _i in _cell_list:
                     if self.check_if_in_vis_hdg(_val=_i):
                         return _i, _mode, _cell_keys[_flag_excl]  # hdg , NetMode, CellKey
 
