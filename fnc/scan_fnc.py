@@ -120,8 +120,7 @@ class ScanSignals:
         try:
             self.arduino.set_servo(servo=1, _val=_val, _speed=_speed, wait_servo_confirm=True)
         except ConnectionError:
-            self.arduino.run_trigger = False
-            self.run_trigger = False
+            raise ConnectionError
 
     def scan_hdg_range(self, _hdg_list, _net_mode, _servo_speed=2, _resolution=32, _lte_duration=5):
         _step = self.calc_steps(_resolution)
@@ -133,7 +132,10 @@ class ScanSignals:
             _n_stop = max(_vis_list)
             while _n_start <= _n_stop:
                 if self.check_if_in_vis_hdg(_n_start):
-                    self.set_servo_hdg(_n_start, _servo_speed)
+                    try:
+                        self.set_servo_hdg(_n_start, _servo_speed)
+                    except ConnectionError:
+                        raise ConnectionError
                     self.get_lte_signals_avg(_duration=_lte_duration, _hdg=_n_start, _resolution=_resolution)
                 _n_start += _step
         self.get_cells(_net_mode)
@@ -156,7 +158,10 @@ class ScanSignals:
                 _val = -_n_low + _n
                 if (-_n_low + _n) >= _dif:
                     break
-            self.set_servo_hdg(_val, _servo_speed)
+            try:
+                self.set_servo_hdg(_val, _servo_speed)
+            except ConnectionError:
+                raise ConnectionError
             self.get_lte_signals_avg(_duration=_lte_duration, _hdg=_val, _resolution=_resolution)
             _n += _step
         self.get_cells(self.lte_stick.net_mode)
@@ -170,30 +175,22 @@ class ScanSignals:
             try:
                 self.lte_stick.set_net_mode(_net_mode)
             except ConnectionError:
-                self.run_trigger = False
-        try:
-            self.scan_full_range(_resolution=_resolution,
-                                 _servo_speed=_speed,
-                                 _lte_duration=_lte_duration,
-                                 _loop=True)
-        except ConnectionError:
-            self.run_trigger = False
+                raise ConnectionError
+        for _n in range(2):
+            if self.run_trigger:
+                try:
+                    self.scan_full_range(_resolution=_resolution,
+                                         _servo_speed=_speed,
+                                         _lte_duration=_lte_duration,
+                                         _loop=bool(1 - _n))
+                except ConnectionError:
+                    raise ConnectionError
+                if not _n:
+                    try:
+                        self.lte_stick.switch_net_mode()
+                    except ConnectionError:
+                        raise ConnectionError
 
-        if _net_mode == 2:
-            _net_mode = 3
-        else:
-            _net_mode = 2
-        try:
-            self.lte_stick.set_net_mode(_net_mode)
-        except ConnectionError:
-            self.run_trigger = False
-        try:
-            self.scan_full_range(_lte_duration=_lte_duration,
-                                 _resolution=_resolution,
-                                 _servo_speed=_speed,
-                                 _loop=False)
-        except ConnectionError:
-            self.run_trigger = False
         self.run_trigger = False
 
     def scan_cycle(self, _duration=2, _timer=-1, _resolution=32, _lte_duration=7, _net_mode=0):
@@ -215,7 +212,10 @@ class ScanSignals:
             ti = time.time()
             while self.run_trigger and self.arduino.run_trigger:
                 log("Timed Thread", 9)
-                self.scan_full_range(_resolution=_resolution, _loop=_lo, _lte_duration=_lte_duration)
+                try:
+                    self.scan_full_range(_resolution=_resolution, _loop=_lo, _lte_duration=_lte_duration)
+                except ConnectionError:
+                    raise ConnectionError
                 if _lo:
                     _lo = False
                 else:
@@ -232,7 +232,7 @@ class ScanSignals:
                         self.lte_stick.set_net_mode(_net_mode)
                     except ConnectionError:
                         self.run_trigger = False
-                        raise
+                        raise ConnectionError
                 if (time.time() - ti) > _timer:
                     break
         else:
@@ -241,7 +241,10 @@ class ScanSignals:
                 if not self.run_trigger or not self.arduino.run_trigger:
                     break
                 log("Scan Nr: " + str(n), 9)
-                self.scan_full_range(_resolution=_resolution, _loop=_lo)
+                try:
+                    self.scan_full_range(_resolution=_resolution, _loop=_lo)
+                except ConnectionError:
+                    raise ConnectionError
                 if _lo:
                     _lo = False
                 else:
@@ -258,7 +261,7 @@ class ScanSignals:
                     try:
                         self.lte_stick.set_net_mode(_net_mode)
                     except ConnectionError:
-                        raise
+                        raise ConnectionError
         self.run_trigger = False
 
     def run_scan_cycle_thread(self, duration=2, timer=-1, resolution=32, lte_duration=7):

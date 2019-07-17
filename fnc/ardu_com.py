@@ -161,8 +161,7 @@ class ArduCom:
             self.send_w_ack(flag, out)
             self.servo_val = _val
         except ConnectionError:
-            self.run_trigger = False
-            return False
+            raise ConnectionError
 
         if wait_servo_confirm:
             _e_count = 0

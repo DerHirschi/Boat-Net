@@ -6,12 +6,14 @@ from huawei_lte_api.exceptions import ResponseErrorException
 
 class LTEStick:
     def __init__(self, stick_addi):
+        self.run_trigger = False
         self.client = None
         self.rsrq = -999
         self.sinr = -999
         self.rsrp = -999
         try:
             self.client = Client(AuthorizedConnection(stick_addi))
+            self.run_trigger = True
         except Exception:
             print("Connection2Modem Error ...")
             raise ConnectionError
@@ -64,9 +66,11 @@ class LTEStick:
             self.client.device.reboot()
         except ResponseErrorException:
             print('Rebooting LTE-Modem ...')
-            time.sleep(20)
+            time.sleep(30)
+            self.run_trigger = True
             return True
         except Exception:
+            self.run_trigger = False
             raise ConnectionError
         return False
 
@@ -108,17 +112,31 @@ class LTEStick:
                 while self.client.device.signal()['mode'] is None:
                     if e_c > 10:
                         print("Error.. None Net Mode after changing Net Mode .. No NET ??")
-                        # raise ConnectionError
-                        break
+                        self.run_trigger = False
+                        raise ConnectionError
                     time.sleep(1)
                     e_c += 1
 
                 # print("New Net-Mode set: " + str(net_mode))
                 self.net_mode = int(net_mode)
+                time.sleep(3)
                 return net_mode
             except Exception:
                 print("Error.. while trying to set Net Mode ..")
+                self.run_trigger = False
                 raise ConnectionError
             return False
         else:
             return False
+
+    def switch_net_mode(self):
+        if self.net_mode:
+            _f = {
+                2: 3,
+                3: 2
+            }[self.net_mode]
+            try:
+                self.set_net_mode(_f)
+            except ConnectionError:
+                self.run_trigger = False
+                raise ConnectionError

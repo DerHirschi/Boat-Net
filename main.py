@@ -22,6 +22,17 @@ class Main:
 
         self.th_run = False         # Trigger to brake threaded loops
         self.thread = None          # Thread var to join the thread
+        # TODO better loop timing system
+        # Config TODO gather config vars in config.py
+        self.scan_time_passiv = 20      # Scan without move antenna. Just get signals
+        self.scan_time_cell = 60       # Scan cell with move antenna. Just get signals
+        self.new_servo_set_time = 10    # Time if check if a stronger cell is available
+        self.scan_resolution = 40       # Resolution of scans
+        self.scan_durration = 5         # Duration of scanned signals from LTE stick
+        self.init_speed = 250           # Servo Speed for initialization scan
+        self.cell_speed = 400           # Servo Speed for cell scan
+        # Flags
+        self.cell_hdg_list = []
         # Arduino
         try:
             print("Arduino init")
@@ -71,9 +82,16 @@ class Main:
                     self.scan.scanres4G, \
                     self.scan.null_hdg = temp_scan                  # Write back temp values to Scan Class
                 self.web = Data2Web(self.scan)                      # Reinitialize Web Output
+            if not self.lte.run_trigger:                            # Check LTE Stick Error state
+                _t = False
+                try:
+                    _t = self.lte.reboot()                              # Try to reboot Stick
+                except ConnectionError:
+                    self.close("main.reinit_check() lte.reboot - ConnectionError")
+                if not _t:
+                    self.close()
             time.sleep(1)
-        self.ardu.run_trigger = False
-        self.scan.run_trigger = False
+        self.close()
 
     def init_ardu(self):
         try:
@@ -101,12 +119,99 @@ class Main:
     def go_strongest_cell(self, _net_mode=1, _speed=2):
         # _net_mode 1 = Auto
         _hdg = self.scan.get_best_cell_hdg(_mode=_net_mode)
-        self.lte.set_net_mode(_hdg[1])
         if _hdg:
-            self.scan.set_servo_hdg(_val=_hdg[0], _speed=_speed)
-            return _hdg[2]
+            try:
+                self.scan.set_servo_hdg(_val=_hdg[0], _speed=_speed)
+            except ConnectionError:
+                self.close("go_strongest_cell() set_servo_hdg() ConnectionError")
+
+            if _hdg[1] != self.lte.net_mode:
+                try:
+                    self.lte.set_net_mode(_hdg[1])
+                except ConnectionError:
+                    self.close("main.go_strongest_cell() set_net_mode - ConnectionError")
+            self.cell_hdg_list = self.scan.get_cell_dict(self.lte.net_mode)[_hdg[2]]
         else:
-            return False
+            self.cell_hdg_list = []
+
+    def chk_act_cell_vis(self):
+        if not self.scan.check_if_in_vis_hdg(self.ardu.servo_val):
+            log("", 9)
+            log("chk_act_cell_vis ", 9)
+            self.go_strongest_cell(_speed=self.cell_speed)
+
+    def chk_sig_in_threshold(self):
+        _sig = self.scan.get_scanres_dict(self.lte.net_mode)
+        _sig = _sig[self.ardu.servo_val][0]
+        if _sig < self.scan.get_threshold(self.lte.net_mode):
+            log("chk_sig_in_threshold -- Trigger ", 9)
+            log("chk_sig_in_threshold old cell hdg list  " + str(self.cell_hdg_list), 9)
+            self.go_strongest_cell(_speed=self.cell_speed)
+            log("chk_sig_in_threshold new cell hdg list  " + str(self.cell_hdg_list), 9)
+
+    def chk_no_scanned_array(self):
+        _le = len(self.scan.get_scanres_dict(self.lte.net_mode))
+        if _le < self.scan.N:
+            log("", 9)
+            log("chk_no_scanned_array T 1", 9)
+            _le = int(round((self.scan.N - _le) / 4))
+            _vis_hdg_not_scan = self.scan.get_not_scanned_vis_hdg(self.lte.net_mode)[0]
+            if len(_vis_hdg_not_scan) > _le:  # if more than 1/3 of not scanned array is visible, scan it
+                # print("more than 1/3 vis")
+                log("chk_no_scanned_array T 2", 9)
+                try:
+                    # FIXME Ardus overflow is ........
+                    self.scan.scan_hdg_range(_vis_hdg_not_scan,
+                                             self.lte.net_mode,
+                                             self.cell_speed,
+                                             self.scan_resolution,
+                                             self.scan_durration)
+                except ConnectionError:
+                    self.close("main.chk_no_scanned_array() scan_hdg_range - ConnectionError")
+                self.go_strongest_cell(_speed=self.cell_speed)
+
+    def cell_scan(self):
+        log("", 9)
+        log("cell_scan ", 9)
+        try:
+            self.scan.scan_hdg_range(self.cell_hdg_list,
+                                     self.lte.net_mode,
+                                     self.cell_speed,
+                                     self.scan_resolution,
+                                     self.scan_durration)
+        except ConnectionError:
+            self.close("main.cell_scan() scan_hdg_range ConnectionError")
+        self.go_strongest_cell(_speed=self.cell_speed)
+
+    def pasv_scan(self):
+        log("", 9)
+        log("pasv_scan ", 9)
+        self.scan.get_lte_signals_avg(self.ardu.servo_val,
+                                      self.scan_resolution,
+                                      self.scan_durration)
+
+    def mode_init(self):
+        log("", 9)
+        log("mode_init ", 9)
+        # Set run Trigger
+        self.th_run = True
+        # Switch servo to on
+        self.ardu.toggle_servos(True)
+        # Bring servo slowly to scan start pos
+        try:
+            self.ardu.set_servo(_val=1000, _speed=self.init_speed, wait_servo_confirm=True)
+        except ConnectionError:
+            self.close("main.mode_init() ardu.set_servo - ConnectionError")
+        # Scan slowly both Net Modes
+        try:
+            self.scan.scan_one_cycle(_resolution=self.scan_resolution,
+                                     _lte_duration=self.scan_durration,
+                                     _speed=self.init_speed)
+        except ConnectionError:
+            self.close("main.mode_init() scan.scan_one_cycle - ConnectionError")
+
+        # go slowly to strongest visible cell
+        self.go_strongest_cell(_speed=self.init_speed)
 
     def mode_marina(self):
         # Moored boat at the marina without hdg changes
@@ -131,124 +236,49 @@ class Main:
         # Scan ( continuous all 30 - 60 sec) after active scan
         # if none scanned array is visible ( HDG has changed ), scan it
         # if active cell get badder, switch to next visible cell
-
-        # TODO better loop timing system
-        # Config TODO gather config vars in config.py
-        scan_time_passiv = 20       # Scan without move antenna. Just get signals
-        scan_time_cell = 600         # Scan cell with move antenna. Just get signals
-        new_servo_set_time = 10     # Time if check if a stronger cell is available
-        scan_resolution = 40        # Resolution of scans
-        scan_durration = 5          # Duration of scanned signals from LTE stick
-        init_speed = 250            # Servo Speed for initialization scan
-        cell_speed = 400            # Servo Speed for cell scan
-
-        # Set run Trigger
-        self.th_run = True
-        # Switch servo to on
-        self.ardu.toggle_servos(True)
-        # Bring servo slowly to scan start pos
-        self.ardu.set_servo(_val=1000, _speed=init_speed, wait_servo_confirm=True)
-        # Scan slowly both Net Modes
-        try:
-            self.scan.scan_one_cycle(_resolution=scan_resolution, _lte_duration=scan_durration, _speed=init_speed)
-        except ConnectionError:
-            self.close("self.scan.scan_one_cycle ConnectionError in main.mode_anchor()")
-        # go slowly to strongest visible cell
-        _cell_key = self.go_strongest_cell(_speed=init_speed)
-        if _cell_key:       # No results in first scan
-            _cell_hdg_list = self.scan.get_cell_dict(self.lte.net_mode)[_cell_key]
+        # TODO Set configs before start
+        self.mode_init()
+        # TODO Loop if no cell_hdg_list > new scan
+        if self.cell_hdg_list:       # No results in first scan
             _c1 = 0         # TODO better loop timing system
             _c2 = 0         # TODO better loop timing system
             _c3 = 0         # TODO better loop timing system
             while self.run_trigger and self.th_run:
-                if _c1 > scan_time_passiv:      # Passive scan
-                    log("", 9)
-                    log("Passive Scan ", 9)
-                    self.scan.get_lte_signals_avg(self.ardu.servo_val, scan_resolution, scan_durration,)
-                    log("Passive Scan 3g Cells " + str(self.scan.cells_3G.keys()), 9)
-                    log("Passive Scan 4g Cells " + str(self.scan.cells_4G.keys()), 9)
-                    log("Passive Scan Cell key " + str(_cell_key), 9)
+                if _c1 > self.scan_time_passiv:      # Passive scan
+                    self.pasv_scan()                 # OK
                     _c1 = 0
                 else:
                     _c1 += 1
 
-                if _c2 > scan_time_cell:        # Active scan
-                    log("", 9)
-                    log("Active Scan ", 9)
-                    log("Active Scan old cell key " + str(_cell_key), 9)
-                    log("Active Scan old cell hdg list  " + str(_cell_hdg_list), 9)
-
-                    # _hdg_list = self.scan.vis_hdg_of_list(_cell_hdg_list)
-                    self.scan.scan_hdg_range(_cell_hdg_list,
-                                             self.lte.net_mode,
-                                             cell_speed,
-                                             scan_resolution,
-                                             scan_durration)
-                    log("Active Scan 3g Cells " + str(self.scan.cells_3G.keys()), 9)
-                    log("Active Scan 4g Cells " + str(self.scan.cells_4G.keys()), 9)
-                    _cell_key = self.go_strongest_cell(_speed=cell_speed)
-                    _cell_hdg_list = self.scan.get_cell_dict(self.lte.net_mode)[_cell_key]
-                    log("Active Scan new cell key " + str(_cell_key), 9)
-                    log("Active Scan new cell hdg list  " + str(_cell_hdg_list), 9)
+                if _c2 > self.scan_time_cell:        # Active scan
+                    # self.cell_scan()               # OK
                     _c2 = 0
                     _c1 = 0
                 else:
                     _c2 += 1
 
                 # Check if stronger cell is available
-                # if _c3 > new_servo_set_time:
-                #     _cell_key = self.go_strongest_cell(_speed=cell_speed)
-                #     _cell_hdg_list = self.scan.get_cell_dict(self.lte.net_mode)[_cell_key]
-                #     _c3 = 0
-                # else:
-                #     _c3 += 1
-
+                '''
+                # Should be ok
+                # can be triggered if sig under threshold
+                if _c3 > self.new_servo_set_time:
+                    self.go_strongest_cell(_speed=self.cell_speed)
+                    _c3 = 0
+                else:
+                    _c3 += 1
+                '''
                 # Check if signal is over threshold
-                if _c3 > new_servo_set_time:
-                    _sig = self.scan.get_scanres_dict(self.lte.net_mode)
-                    _sig = _sig[self.ardu.servo_val][0]
-                    if _sig < self.scan.get_threshold(self.lte.net_mode):
-                        log("", 9)
-                        log("Sig under threshold ", 9)
-                        log("Sig under threshold old cell key " + str(_cell_key), 9)
-                        log("Sig under threshold old cell hdg list  " + str(_cell_hdg_list), 9)
-                        _cell_key = self.go_strongest_cell(_speed=cell_speed)
-                        _cell_hdg_list = self.scan.get_cell_dict(self.lte.net_mode)[_cell_key]
-                        log("Sig under threshold new cell key " + str(_cell_key), 9)
-                        log("Sig under threshold new cell hdg list  " + str(_cell_hdg_list), 9)
-
+                if _c3 > self.new_servo_set_time:
+                    # self.chk_sig_in_threshold()   # Not tested
                     _c3 = 0
                 else:
                     _c3 += 1
 
-                # Check if active cell is visible
-                if not self.scan.check_if_in_vis_hdg(self.ardu.servo_val):
-                    log("", 9)
-                    log("Cell HDG not visible ", 9)
-                    # log("Cell HDG not visible self.scan.get_visible_hdg() " + str(self.scan.get_visible_hdg()), 9)
-                    log("Cell HDG not visible old cell key " + str(_cell_key), 9)
-                    _cell_key = self.go_strongest_cell(_speed=cell_speed)
-                    _cell_hdg_list = self.scan.get_cell_dict(self.lte.net_mode)[_cell_key]
-                    log("Cell HDG not visible new cell key " + str(_cell_key), 9)
-
                 # Check if none scanned range is visible
-                '''
-                _le = len(self.scan.get_scanres_dict(self.lte.net_mode))
-                if _le < self.scan.N:
+                self.chk_no_scanned_array()     # OK > FIXME Ardus overflow is ...
+                # Check if active cell is visible
+                self.chk_act_cell_vis()         # OK
 
-                    _le = int(round((self.scan.N - _le) / 3))
-                    _vis_hdg_not_scan = self.scan.get_not_scanned_vis_hdg(self.lte.net_mode)
-                    # print("not scanned vis   " + str(_vis_hdg_not_scan))
-                    # FIXME .. something is wrong here .. but .. sunrise = bedtime
-                    if len(_vis_hdg_not_scan) > _le:        # if more than 1/3 of not scanned array is visible, scan it
-                        # print("more than 1/3 vis")
-                        self.scan.scan_hdg_range(_vis_hdg_not_scan,
-                                                 self.lte.net_mode,
-                                                 cell_speed,
-                                                 scan_resolution,
-                                                 scan_durration)
-                        _cell_key = self.go_strongest_cell(_speed=cell_speed)
-                '''
                 time.sleep(1)
         self.th_run = False
 
@@ -278,6 +308,7 @@ if __name__ == '__main__':
         try:
             main.mode_anchor()
         except KeyboardInterrupt:
+            threading.Thread(target=main.ardu.set_servo, args=(1, 512, 500, True, True)).start()
             print('wird geschlossen')
             print('Plot 1 wird erstellt')
             main.web.plot_lte_signals(2)
