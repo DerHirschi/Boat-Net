@@ -75,6 +75,7 @@ class LTEStick:
             '00': 0,    # Auto
             '01': 1,    # 2G
             '02': 2,    # 3G
+            '03': 3,    # 4G
             '07': 3     # 4G
         }[self.client.net.net_mode()['NetworkMode']]
 

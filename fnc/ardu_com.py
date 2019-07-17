@@ -157,9 +157,9 @@ class ArduCom:
         if new_gimbal_lock:
             out += 'L'
         out += '{},{}:{}'.format((_val + 2000), _speed, servo)     # val+2000 to get - values
-        self.servo_val = _val
         try:
             self.send_w_ack(flag, out)
+            self.servo_val = _val
         except ConnectionError:
             self.run_trigger = False
             return False

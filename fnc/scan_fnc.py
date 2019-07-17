@@ -36,13 +36,13 @@ class ScanSignals:
             3: self.threshold_4G
         }[_net_mode]
 
-    def get_sig_array_dict(self, _net_mode):
+    def get_cell_dict(self, _net_mode):
         return {
             2: self.cells_3G,
             3: self.cells_4G,
         }[_net_mode]
 
-    def set_sig_array_dict(self, _res, _net_mode):
+    def set_cell_dict(self, _res, _net_mode):
         if _net_mode == 2:
             self.cells_3G = _res
         elif _net_mode == 3:
@@ -163,6 +163,7 @@ class ScanSignals:
             self.set_servo_hdg(_val, _servo_speed)
             self.get_lte_signals_avg(_duration=_lte_duration, _hdg=_val, _resolution=_resolution)
             _n += _step
+        self.get_cells(self.lte_stick.net_mode)
 
     def scan_one_cycle(self, _resolution=32, _lte_duration=5, _speed=2):
         self.run_trigger = True
@@ -183,7 +184,7 @@ class ScanSignals:
             self.run_trigger = False
 
         if _net_mode == 2:
-            _net_mode = 1
+            _net_mode = 3
         else:
             _net_mode = 2
         try:
@@ -219,7 +220,6 @@ class ScanSignals:
             while self.run_trigger and self.arduino.run_trigger:
                 log("Timed Thread", 9)
                 self.scan_full_range(_resolution=_resolution, _loop=_lo, _lte_duration=_lte_duration)
-                self.get_cells(_net_mode)                           # Calculate Signal Arrays
                 if _lo:
                     _lo = False
                 else:
@@ -246,7 +246,6 @@ class ScanSignals:
                     break
                 log("Scan Nr: " + str(n), 9)
                 self.scan_full_range(_resolution=_resolution, _loop=_lo)
-                self.get_cells(_net_mode)                           # Calculate Signal Arrays
                 if _lo:
                     _lo = False
                 else:
@@ -273,37 +272,56 @@ class ScanSignals:
             return False
 
     def get_best_cell_hdg(self, _mode=1):
+        # _exclude_keys = (3g/4g) to exclude cells
         # _mode 1 = best Cell 3G/4G
         # _mode 2 = best Cell 3G
         # _mode 3 = best Cell 4G
-        _cells = {
-            1: self.cells_3G,
-            2: self.cells_3G,
-            3: self.cells_4G
-        }[_mode]
-        _cell_keys = sorted(_cells.keys(), reverse=True)
-
-        if _mode == 1:
-            _flag = self.cells_4G
-            _flag_keys = sorted(_flag.keys(), reverse=True)
-            if _cell_keys and _flag_keys:
-                if _flag_keys[0] > _cell_keys[0]:
+        _exclude = (1, 1)
+        while True:
+            _cells = {
+                1: self.cells_3G,
+                2: self.cells_3G,
+                3: self.cells_4G
+            }[_mode]
+            _e_index = 0
+            _flag_excl = _exclude[0]
+            _cell_keys = sorted(_cells.keys(), reverse=True)
+            if _mode == 1:
+                _flag = self.cells_4G
+                _flag_keys = sorted(_flag.keys(), reverse=True)
+                if _exclude[0] > len(_cell_keys) and _exclude[1] > len(_flag_keys):
+                    return None
+                elif _exclude[0] > len(_cell_keys):
+                    _flag_excl = _exclude[1] - 1
+                    _e_index = 1
                     _mode = 3
                     _cells = _flag
                     _cell_keys = _flag_keys
-            elif not _cell_keys and not _flag_keys:
+
+                elif _flag_keys[(_exclude[1] - 1)] > _cell_keys[(_exclude[0] - 1)]:
+                    _flag_excl = _exclude[1] - 1
+                    _e_index = 1
+                    _mode = 3
+                    _cells = _flag
+                    _cell_keys = _flag_keys
+
+            elif _mode == 2 and not _cell_keys:
                 return None
-            elif not _cell_keys:
-                _cells = _flag
-                _cell_keys = _flag_keys
-        elif _mode == 2 and not _cell_keys:
-            return None
-        elif _mode == 3 and not _cell_keys:
-            return None
-        _scan_arr = _cells[_cell_keys[0]]
-        # log("_cell_keys " + str(_cell_keys), 9)
-        _mode = max(_mode, 2)
-        return self.get_peak_from_hgd_list(_scan_arr, _mode), _mode     # (signal, hdg), NetMode
+            elif _mode == 3 and not _cell_keys:
+                return None
+            _scan_arr = _cells[_cell_keys[_flag_excl]]
+            # log("_cell_keys " + str(_cell_keys), 9)
+            _mode = max(_mode, 2)
+            _hdg = self.get_peak_from_hgd_list(_scan_arr, _mode)[1]
+            if self.check_if_in_vis_hdg(_val=_hdg):
+                return _hdg, _mode, _cell_keys[_flag_excl]     # hdg , NetMode, CellKey
+            else:
+                for _i in _scan_arr:
+                    if self.check_if_in_vis_hdg(_val=_i):
+                        return _i, _mode, _cell_keys[_flag_excl]  # hdg , NetMode, CellKey
+
+            _exclude[_e_index] += 1
+        # FUU
 
     @staticmethod
     def get_peak(_scanres):
@@ -370,7 +388,23 @@ class ScanSignals:
                 _avg_res[_array_weight] = _ra
             # log("", 9)
             # log("_avg_res  " + str(_avg_res), 9)
-            self.set_sig_array_dict(_avg_res, _net_mode)  # set dict. Keys = weight, value = list of servo hdg for range
+            self.set_cell_dict(_avg_res, _net_mode)  # set dict. Keys = weight, value = list of servo hdg for range
         else:
-            self.set_sig_array_dict({}, _net_mode)  # or {} if no keys in scanres because all sig vals under threshold
+            self.set_cell_dict({}, _net_mode)  # or {} if no keys in scanres because all sig vals under threshold
             # I start to love Pythons dictionaries
+
+    def check_if_in_vis_hdg(self, _val=None):
+        if not _val:
+            _val = self.arduino.servo_val
+        if _val in self.get_visible_hdg():
+            return True
+        else:
+            return False
+
+    def vis_hdg_of_list(self, _in_hdg_list):
+        _ret = []
+        for _i in _in_hdg_list:
+            if self.check_if_in_vis_hdg(_val=_i):
+                _ret.append(_i)
+        return _ret
+

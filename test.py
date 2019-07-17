@@ -20,9 +20,10 @@ if main.run_trigger:
 
         # while main.run_trigger:
         if main.ardu.run_trigger:
-
+            main.scan.scan_one_cycle(_resolution=40, _lte_duration=5, _speed=150)
             try:
-                # main.scan.scan_cycle(_resolution=32, _lte_duration=5, _duration=2, _net_mode=0)
+                # main.scan.scan_cycle(_resolution=32, _lte_duration=5, _duration=1, _net_mode=0)
+
                 print("")
             except ConnectionError:
             # while True:
@@ -43,7 +44,7 @@ if main.run_trigger:
                 _n.append(_i)
                 _i += 1
 
-            main.scan.scan_hdg_range(_n, 2, _servo_speed=100)
+            # main.scan.scan_hdg_range(_n, 2, _servo_speed=100)
             log("", 9)
             log("len scanres3G arrays " + str(len(list_parts(sorted(main.scan.scanres3G.keys())))), 9)
             log("", 9)
@@ -56,7 +57,7 @@ if main.run_trigger:
             for _in in range(300):
                 _n.append(_i)
                 _i += 1
-            main.scan.scan_hdg_range(_n, 3, _servo_speed=100)
+            # main.scan.scan_hdg_range(_n, 3, _servo_speed=100)
             log("", 9)
             log("", 9)
             log("", 9)

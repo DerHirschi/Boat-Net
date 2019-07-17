@@ -76,7 +76,7 @@ class Data2Web:
 
         _sig_array_dict = {}
         if _plot_signal_array:
-            _sig_array_dict = self.scan.get_sig_array_dict(_net_mode)
+            _sig_array_dict = self.scan.get_cell_dict(_net_mode)
 
         _conf = []
         if _signal_type:
