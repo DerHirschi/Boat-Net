@@ -132,7 +132,7 @@ class ArduCom:
             except serial.SerialException:
                 print("Error write to Arduion ...")
                 self.run_trigger = False
-                raise ConnectionError
+                raise
             _e_count = 0
             while self.ack != _flag:
                 if not self.run_trigger or _e_count >= 300:
@@ -161,18 +161,18 @@ class ArduCom:
             self.send_w_ack(flag, out)
             self.servo_val = _val
         except ConnectionError:
-            raise ConnectionError
+            raise
 
         if wait_servo_confirm:
             _e_count = 0
             while not self.sac and self.run_trigger:
-                if _e_count < 300:               # wait for SAC or 300*0.1 sec (30 sec)
+                if _e_count < 600:               # wait for SAC or 300*0.1 sec (30 sec)
                     # TODO https://stackoverflow.com/questions/5568646/usleep-in-python/5568837
                     time.sleep(0.1)
                     # TODO wait just so long the servo needs to set + a few sec extra
                     _e_count += 1
                 else:
-                    print("ERROR: NO SAC in 30 sec")
+                    print("ERROR: NO SAC in 60 sec")
                     return False
         return True
 

@@ -5,7 +5,7 @@ from etc.log import log
 from config import lte_stick_addi_1 as modem1
 import threading
 import time
-from web_gui.data2web import Data2Web # Python.tk import bug.
+# from web_gui.data2web import Data2Web
 
 
 class Main:
@@ -14,7 +14,7 @@ class Main:
         self.ardu = None
         self.lte = None
         self.scan = None
-        self.web = None
+        # self.web = None
 
         self.th_run = False         # Trigger to brake threaded loops
         self.thread = None          # Thread var to join the thread
@@ -56,7 +56,7 @@ class Main:
                 print("Scan class init")
                 self.scan = self.init_scan()
                 self.scan.get_plmn_list()
-                self.web = Data2Web(self.scan)
+                # self.web = Data2Web(self.scan)
                 threading.Thread(target=self.reinit_check).start()
 
     def reinit_check(self):   # Reinitialisat if Arduino thread stops
@@ -81,7 +81,7 @@ class Main:
                 self.scan.scanres3G, \
                     self.scan.scanres4G, \
                     self.scan.null_hdg = temp_scan                  # Write back temp values to Scan Class
-                self.web = Data2Web(self.scan)                      # Reinitialize Web Output
+                # self.web = Data2Web(self.scan)                      # Reinitialize Web Output
             if not self.lte.run_trigger:                            # Check LTE Stick Error state
                 _t = False
                 try:
@@ -103,7 +103,7 @@ class Main:
         try:
             return LTEStick(modem)
         except ConnectionError:
-            raise ConnectionError
+            raise
 
     def init_scan(self):
         return ScanSignals(_lte_stick=self.lte, _ardu=self.ardu)
@@ -195,6 +195,7 @@ class Main:
         self.scan.get_lte_signals_avg(self.ardu.servo_val,
                                       self.scan_resolution,
                                       self.scan_durration)
+        self.scan.get_cells(self.lte.net_mode)
 
     def mode_init(self):
         log("", 9)
@@ -314,11 +315,11 @@ if __name__ == '__main__':
         try:
             main.mode_anchor()
         except KeyboardInterrupt:
-            threading.Thread(target=main.ardu.set_servo, args=(1, 512, 500, True, True)).start()
+            # threading.Thread(target=main.ardu.set_servo, args=(1, 512, 500, True, True)).start()
             print('wird geschlossen')
-            print('Plot 1 wird erstellt')
-            main.web.plot_lte_signals(2)
-            print('Plot 2 wird erstellt')
-            main.web.plot_lte_signals(3)
+            # print('Plot 1 wird erstellt')
+            # main.web.plot_lte_signals(2)
+            # print('Plot 2 wird erstellt')
+            # main.web.plot_lte_signals(3)
             print("Das wars")
             main.close()

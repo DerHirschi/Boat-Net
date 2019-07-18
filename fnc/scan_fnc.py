@@ -2,6 +2,7 @@ import time
 import threading
 from etc.var import overflow_value, list_avg, map_val, list_parts
 from etc.log import log
+from six.moves import cPickle as Pickle         # for performance
 
 
 class ScanSignals:
@@ -21,6 +22,8 @@ class ScanSignals:
         self.val_range = 1023
         self.N = int(self.val_range / (self.arduino.servo_max_angle - self.arduino.servo_min_angle) * 360)
 
+        self.save_configs()                     # Save configs 2 file for data2.web.py
+
     def calc_steps(self, _resolution):
         return int(self.val_range / (_resolution + 1))
 
@@ -28,6 +31,12 @@ class ScanSignals:
         return {
             2: self.scanres3G,
             3: self.scanres4G,
+        }[_net_mode]
+
+    def get_scanres_filename(self, _net_mode):
+        return {
+            2: 'web_gui/data/3g.pkl',
+            3: 'web_gui/data/4g.pkl'
         }[_net_mode]
 
     def get_threshold(self, _net_mode):
@@ -54,6 +63,7 @@ class ScanSignals:
         for _net in _plmn_list:
             _res.append(_net['FullName'])
         self.plmn_list = _res
+        self.save_plmn()
 
     def get_lte_signals_avg(self, _hdg, _resolution, _duration=5):
         _temp_sig = [0, 0, 0, 0]
@@ -120,7 +130,7 @@ class ScanSignals:
         try:
             self.arduino.set_servo(servo=1, _val=_val, _speed=_speed, wait_servo_confirm=True)
         except ConnectionError:
-            raise ConnectionError
+            raise
 
     def scan_hdg_range(self, _hdg_list, _net_mode, _servo_speed=2, _resolution=32, _lte_duration=5):
         _step = self.calc_steps(_resolution)
@@ -135,7 +145,7 @@ class ScanSignals:
                     try:
                         self.set_servo_hdg(_n_start, _servo_speed)
                     except ConnectionError:
-                        raise ConnectionError
+                        raise
                     self.get_lte_signals_avg(_duration=_lte_duration, _hdg=_n_start, _resolution=_resolution)
                 _n_start += _step
         self.get_cells(_net_mode)
@@ -161,7 +171,7 @@ class ScanSignals:
             try:
                 self.set_servo_hdg(_val, _servo_speed)
             except ConnectionError:
-                raise ConnectionError
+                raise
             self.get_lte_signals_avg(_duration=_lte_duration, _hdg=_val, _resolution=_resolution)
             _n += _step
         self.get_cells(self.lte_stick.net_mode)
@@ -175,7 +185,7 @@ class ScanSignals:
             try:
                 self.lte_stick.set_net_mode(_net_mode)
             except ConnectionError:
-                raise ConnectionError
+                raise
         for _n in range(2):
             if self.run_trigger:
                 try:
@@ -184,12 +194,12 @@ class ScanSignals:
                                          _lte_duration=_lte_duration,
                                          _loop=bool(1 - _n))
                 except ConnectionError:
-                    raise ConnectionError
+                    raise
                 if not _n:
                     try:
                         self.lte_stick.switch_net_mode()
                     except ConnectionError:
-                        raise ConnectionError
+                        raise
 
         self.run_trigger = False
 
@@ -215,7 +225,7 @@ class ScanSignals:
                 try:
                     self.scan_full_range(_resolution=_resolution, _loop=_lo, _lte_duration=_lte_duration)
                 except ConnectionError:
-                    raise ConnectionError
+                    raise
                 if _lo:
                     _lo = False
                 else:
@@ -232,7 +242,7 @@ class ScanSignals:
                         self.lte_stick.set_net_mode(_net_mode)
                     except ConnectionError:
                         self.run_trigger = False
-                        raise ConnectionError
+                        raise
                 if (time.time() - ti) > _timer:
                     break
         else:
@@ -244,7 +254,7 @@ class ScanSignals:
                 try:
                     self.scan_full_range(_resolution=_resolution, _loop=_lo)
                 except ConnectionError:
-                    raise ConnectionError
+                    raise
                 if _lo:
                     _lo = False
                 else:
@@ -261,7 +271,7 @@ class ScanSignals:
                     try:
                         self.lte_stick.set_net_mode(_net_mode)
                     except ConnectionError:
-                        raise ConnectionError
+                        raise
         self.run_trigger = False
 
     def run_scan_cycle_thread(self, duration=2, timer=-1, resolution=32, lte_duration=7):
@@ -391,6 +401,7 @@ class ScanSignals:
         else:
             self.set_cell_dict({}, _net_mode)  # or {} if no keys in scanres because all sig vals under threshold
             # I start to love Pythons dictionaries
+        self.save_dict(_net_mode)       # Save data 2 File
 
     def check_if_in_vis_hdg(self, _val=None):
         if not _val:
@@ -406,4 +417,28 @@ class ScanSignals:
             if self.check_if_in_vis_hdg(_val=_i):
                 _ret.append(_i)
         return _ret
+
+    def save_dict(self, _net_mode):
+        # Source: https://stackoverflow.com/questions/40219946/python-save-dictionaries-through-numpy-save
+        _di = self.get_scanres_dict(_net_mode)
+        _filename = self.get_scanres_filename(_net_mode)
+        with open(_filename, 'wb') as _f:
+            Pickle.dump(_di, _f)
+        _di = self.get_cell_dict(_net_mode)
+        _filename = self.get_scanres_filename(_net_mode)
+        with open((_filename + '_c'), 'wb') as _f:
+            Pickle.dump(_di, _f)
+
+    def save_plmn(self):
+        with open('web_gui/data/plm.pkl', 'wb') as f:
+            Pickle.dump(self.plmn_list, f)
+
+    def save_configs(self):
+        _di = {
+            'N': self.N,
+            'val': self.val_range,
+            'plmn': self.plmn_list
+        }
+        with open('web_gui/data/configs.pkl', 'wb') as f:
+            Pickle.dump(_di, f)
 

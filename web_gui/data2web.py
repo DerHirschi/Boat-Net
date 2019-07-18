@@ -7,38 +7,77 @@ import time
 from etc.var import overflow_value, change_file_ext, map_val
 from etc.log import log
 import matplotlib as mpl
+from six.moves import cPickle as Pickle         # for performance
+
 if not os.environ.get('DISPLAY'):     # Get an Error from python.tk.. Solution from:
     mpl.use('Agg')
 import matplotlib.pyplot as plt
 
 
 class Data2Web:
-    def __init__(self, scan_cl, auto_loop=True):
+    def __init__(self):
         self.run_trigger = False
-        self.scan = scan_cl
+        # self.scan = scan_cl
         # HTML Location
         self.html_images = config.html_images
-        # Signal Plot
-        self.N = self.scan.N
-        self.val_range = self.scan.val_range
-        self.theta = np.arange(0.0, 2 * np.pi, 2 * np.pi / self.N)
-        self.center = int((self.N - self.val_range) / 2)
-        self.radii = []
-        self.radii_array = []
-        self.width = np.pi / 4 * np.random.rand(self.N)
-        _f = open(config.html_root + change_file_ext(config.html_lte_page, 'ba'), 'r')
-        self.html_str_lte_page = _f.read()
-        _f.close()
-        for _i in range(self.N):
-            self.radii.append(-1)                   # -1 to show unscanned array in plot
-            self.radii_array.append(0)
-        for _i in range(len(self.width)):
-            self.width[_i] = 6 / self.N
+        self.N = 0
+        self.val_range = 0
+        if self.load_configs():
+            self.run_trigger = True
+            # Signal Plot
+            self.theta = np.arange(0.0, 2 * np.pi, 2 * np.pi / self.N)
+            self.center = int((self.N - self.val_range) / 2)
+            self.radii = []
+            self.radii_array = []
+            self.width = np.pi / 4 * np.random.rand(self.N)
+            _f = open(config.html_root + change_file_ext(config.html_lte_page, 'ba'), 'r')
+            self.html_str_lte_page = _f.read()
+            _f.close()
+            for _i in range(self.N):
+                self.radii.append(-1)                   # -1 to show unscanned array in plot
+                self.radii_array.append(0)
+            for _i in range(len(self.width)):
+                self.width[_i] = 6 / self.N
+
+    def load_configs(self):
+        with open('data/configs.pkl', 'rb') as f:
+            _di = Pickle.load(f)
+            if _di:
+                self.N = _di['N']
+                self.val_range = _di['val']
+                return True
+        return False
+
+    def get_scanres_filename(self, _net_mode):
+        return {
+            2: 'data/3g.pkl',
+            3: 'data/4g.pkl'
+        }[_net_mode]
+
+    def load_scanres(self, _net_mode):
+        # Source: https://stackoverflow.com/questions/40219946/python-save-dictionaries-through-numpy-save
+        _di = None
+        _f_name = self.get_scanres_filename(_net_mode)
+        with open(_f_name, 'rb') as f:
+            _di = Pickle.load(f)
+        if _di:
+            return _di
+
+    def load_cells(self, _net_mode):
+        # Source: https://stackoverflow.com/questions/40219946/python-save-dictionaries-through-numpy-save
+        _di = None
+        _f_name = self.get_scanres_filename(_net_mode)
+        with open(_f_name + '_c', 'rb') as f:
+            _di = Pickle.load(f)
+        if _di:
+            return _di
 
     def write_plmn_list2web(self, get_new_plmn=False):
+        plmn = None
         if get_new_plmn:
-            self.scan.get_plmn_list()
-        plmn = self.scan.plmn_list
+            with open('data/plm.pkl', 'rb') as f:
+                plmn = Pickle.load(f)
+
         html_str = self.html_str_lte_page
         i = 0
         for st in ['dummy_netze1', 'dummy_netze2', 'dummy_netze3']:
@@ -76,11 +115,11 @@ class Data2Web:
                 }[_mo]
             }[_n_mo]
 
-        _scanres = self.scan.get_scanres_dict(_net_mode)
+        _scanres = self.load_scanres(_net_mode)
 
         _sig_array_dict = {}
         if _plot_signal_array:
-            _sig_array_dict = self.scan.get_cell_dict(_net_mode)
+            _sig_array_dict = self.load_cells(_net_mode)
 
         _conf = []
         if _signal_type:
@@ -155,7 +194,7 @@ class Data2Web:
         # _radii_array = self.radii_array every irritation but doesnt wor .. hmpf
         # solution: Plot in bars not filled
         # FIXME END
-        _sig_array_dict = self.scan.get_cells(_net_mode)
+        _sig_array_dict = self.load_cells(_net_mode)
 
         def _get_mode_config(_n_mo):
             return {
@@ -222,5 +261,7 @@ class Data2Web:
             time.sleep(1)
 
 
-
-
+if __name__ == '__main__':
+    web = Data2Web()
+    web.plot_lte_signals(_net_mode=2)
+    web.plot_lte_signals(_net_mode=3)

@@ -16,7 +16,7 @@ class LTEStick:
             self.run_trigger = True
         except Exception:
             print("Connection2Modem Error ...")
-            raise ConnectionError
+            raise
 
         self.net_mode = self.get_net_mode()
 
@@ -71,7 +71,7 @@ class LTEStick:
             return True
         except Exception:
             self.run_trigger = False
-            raise ConnectionError
+            raise
         return False
 
     def get_net_mode(self):
@@ -124,7 +124,7 @@ class LTEStick:
             except Exception:
                 print("Error.. while trying to set Net Mode ..")
                 self.run_trigger = False
-                raise ConnectionError
+                raise
             return False
         else:
             return False
@@ -139,4 +139,4 @@ class LTEStick:
                 self.set_net_mode(_f)
             except ConnectionError:
                 self.run_trigger = False
-                raise ConnectionError
+                raise
