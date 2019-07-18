@@ -106,11 +106,13 @@ class ScanSignals:
         return int(map_val(_hdg, -360, 360, -self.N, self.N))
 
     def get_visible_hdg(self):
-        _dif = -self.get_hdg_diff_mapped()
-        _hdg_min = overflow_value(_dif, self.N)
+        _hdg_min = -self.get_hdg_diff_mapped()
         _res = []
-        for _i in range(self.val_range):
-            _res.append(overflow_value(_hdg_min + _i, self.N))
+        for _i in range(self.val_range + 1):
+            _flag = _hdg_min + _i
+            if _flag > 0:
+                _flag = overflow_value(_flag, self.N)
+            _res.append(_flag)
         return _res                     # Returns a list of hdg
 
     def get_not_scanned_vis_hdg(self, _net_mode):
@@ -122,7 +124,7 @@ class ScanSignals:
             log("No more hidden cells !!", 9)
             return _res, _net_mode
         for _i in _vis_range:
-            if _i not in _scan_res:
+            if overflow_value(_i, self.N) not in _scan_res:
                 _res.append(_i)
         return _res, _net_mode
 
@@ -401,7 +403,7 @@ class ScanSignals:
         else:
             self.set_cell_dict({}, _net_mode)  # or {} if no keys in scanres because all sig vals under threshold
             # I start to love Pythons dictionaries
-        self.save_dict(_net_mode)       # Save data 2 File
+        self.save_dict(_net_mode)                    # Save data 2 File
 
     def check_if_in_vis_hdg(self, _val=None):
         if not _val:

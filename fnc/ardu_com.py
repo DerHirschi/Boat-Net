@@ -65,7 +65,7 @@ class ArduCom:
                     while self.ack != -1:
                         pass
                     if chr(int(ser_buffer[3:])) == flag:   # INIT completed
-                        print('ACK-INIT-Recv :' + str(chr(int(ser_buffer[3:]))))
+                        # print('ACK-INIT-Recv :' + str(chr(int(ser_buffer[3:]))))
                         return True
                     ser_buffer = b''
 

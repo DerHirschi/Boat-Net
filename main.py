@@ -126,15 +126,18 @@ class Main:
         if _hdg:
             try:
                 self.scan.set_servo_hdg(_val=_hdg[0], _speed=_speed)
+                if _hdg[1] != self.lte.net_mode:
+                    try:
+                        self.lte.set_net_mode(_hdg[1])
+                        self.cell_hdg_list = self.scan.get_cell_dict(self.lte.net_mode)[_hdg[2]]
+                    except Exception as e:
+                        # TODO just reboot LTE Stick
+                        self.close("main.go_strongest_cell() set_net_mode -  " + str(e))
+                else:
+                    self.cell_hdg_list = self.scan.get_cell_dict(self.lte.net_mode)[_hdg[2]]
             except Exception as e:
+                # TODO just reboot reinit Arduino
                 self.close("go_strongest_cell() set_servo_hdg() - " + str(e))
-
-            if _hdg[1] != self.lte.net_mode:
-                try:
-                    self.lte.set_net_mode(_hdg[1])
-                except Exception as e:
-                    self.close("main.go_strongest_cell() set_net_mode -  " + str(e))
-            self.cell_hdg_list = self.scan.get_cell_dict(self.lte.net_mode)[_hdg[2]]
         else:
             self.cell_hdg_list = []
 
@@ -159,33 +162,34 @@ class Main:
             _le = len(self.scan.get_scanres_dict(self.lte.net_mode))
             if _le < self.scan.N:
                 log("", 9)
-                log("chk_no_scanned_array T 1", 9)
+                log("chk_no_scanned_array T 1 L: " + str(_n + 1), 9)
                 _le = int((self.scan.N - _le) / 2)   # FIXME _le get smaller and smaller. Also servo gets nervous
                 _vis_hdg_not_scan = self.scan.get_not_scanned_vis_hdg(self.lte.net_mode)[0]
-                if _n:
-                    _vis_hdg_not_scan = _vis_hdg_not_scan[::-1]
-                if len(_vis_hdg_not_scan) > _le:  # if more than 1/3 of not scanned array is visible, scan it
-                    _t = True
-                    # print("more than 1/3 vis")
+                if len(_vis_hdg_not_scan) >= _le:  # if more than 1/3 of not scanned array is visible, scan it
                     log("chk_no_scanned_array T 2", 9)
+                    if _n:
+                        _vis_hdg_not_scan = _vis_hdg_not_scan[::-1]
                     try:
-                        # FIXME Ardus overflow is ........
                         self.scan.scan_hdg_range(_vis_hdg_not_scan,
                                                  self.lte.net_mode,
                                                  self.cell_speed,
                                                  self.scan_resolution,
                                                  self.scan_durration)
+                        if not _n:
+                            try:
+                                self.lte.switch_net_mode()
+                            except Exception as e:
+                                # TODO Reboot LTE Stick
+                                self.close("main.chk_no_scanned_array()  switch_net_mode - " + str(e))
+                                break
+                        _t = True
                     except Exception as e:
                         self.close("main.chk_no_scanned_array() scan_hdg_range - " + str(e))
-                if _n and _t:
+                        break
+
+                if _t and _n:
                     self.go_strongest_cell(_speed=self.cell_speed)
                     self.call_web2data = True
-
-            if not _n:
-                try:
-                    self.lte.switch_net_mode()
-                except Exception as e:
-                    self.close("main.chk_no_scanned_array()  switch_net_mode - " + str(e))
 
     def cell_scan(self):
         log("", 9)
@@ -196,10 +200,10 @@ class Main:
                                      self.cell_speed,
                                      self.scan_resolution,
                                      self.scan_durration)
+            self.go_strongest_cell(_speed=self.cell_speed)
+            self.call_web2data = True
         except ConnectionError:
             self.close("main.cell_scan() scan_hdg_range ConnectionError")
-        self.go_strongest_cell(_speed=self.cell_speed)
-        self.call_web2data = True
 
     def pasv_scan(self):
         log("", 9)
@@ -225,20 +229,19 @@ class Main:
         # Bring servo slowly to scan start pos
         try:
             self.ardu.set_servo(_val=1000, _speed=self.init_speed, wait_servo_confirm=True)
+            # Scan slowly both Net Modes
+            try:
+                self.scan.scan_one_cycle(_resolution=self.scan_resolution,
+                                         _lte_duration=self.scan_durration,
+                                         _speed=self.init_speed)
+                # go slowly to strongest visible cell
+                self.go_strongest_cell(_speed=self.init_speed)
+                self.c5 = time.time()
+                self.data2web()
+            except ConnectionError:
+                self.close("main.mode_init() scan.scan_one_cycle - ConnectionError")
         except ConnectionError:
             self.close("main.mode_init() ardu.set_servo - ConnectionError")
-        # Scan slowly both Net Modes
-        try:
-            self.scan.scan_one_cycle(_resolution=self.scan_resolution,
-                                     _lte_duration=self.scan_durration,
-                                     _speed=self.init_speed)
-        except ConnectionError:
-            self.close("main.mode_init() scan.scan_one_cycle - ConnectionError")
-
-        # go slowly to strongest visible cell
-        self.go_strongest_cell(_speed=self.init_speed)
-        self.c5 = time.time()
-        self.data2web()
 
     def mode_marina(self):
         # Moored boat at the marina without hdg changes
