@@ -287,7 +287,7 @@ class ScanSignals:
         # _mode 1 = best Cell 3G/4G
         # _mode 2 = best Cell 3G
         # _mode 3 = best Cell 4G
-        _exclude = (1, 1)
+        _exclude = [1, 1]
         while True:
             _cells = {
                 1: self.cells_3G,

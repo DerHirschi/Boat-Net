@@ -161,12 +161,11 @@ class Main:
         for _n in range(2):
             _le = len(self.scan.get_scanres_dict(self.lte.net_mode))
             if _le < self.scan.N:
-                log("", 9)
-                log("chk_no_scanned_array T 1 L: " + str(_n + 1), 9)
                 _le = int((self.scan.N - _le) / 2)   # FIXME _le get smaller and smaller. Also servo gets nervous
                 _vis_hdg_not_scan = self.scan.get_not_scanned_vis_hdg(self.lte.net_mode)[0]
                 if len(_vis_hdg_not_scan) >= _le:  # if more than 1/3 of not scanned array is visible, scan it
-                    log("chk_no_scanned_array T 2", 9)
+                    log("", 9)
+                    log("chk_no_scanned_array > " + str(_n), 9)
                     if _n:
                         _vis_hdg_not_scan = _vis_hdg_not_scan[::-1]
                     try:
@@ -187,9 +186,9 @@ class Main:
                         self.close("main.chk_no_scanned_array() scan_hdg_range - " + str(e))
                         break
 
-                if _t and _n:
-                    self.go_strongest_cell(_speed=self.cell_speed)
-                    self.call_web2data = True
+            if _t and _n:
+                self.go_strongest_cell(_speed=self.cell_speed)
+                self.call_web2data = True
 
     def cell_scan(self):
         log("", 9)
@@ -212,6 +211,7 @@ class Main:
                                       self.scan_resolution,
                                       self.scan_durration)
         self.scan.get_cells(self.lte.net_mode)
+        self.chk_sig_in_threshold()
 
     @staticmethod
     def chk_loop_time(_time, _threshold):
@@ -230,16 +230,17 @@ class Main:
         try:
             self.ardu.set_servo(_val=1000, _speed=self.init_speed, wait_servo_confirm=True)
             # Scan slowly both Net Modes
-            try:
-                self.scan.scan_one_cycle(_resolution=self.scan_resolution,
-                                         _lte_duration=self.scan_durration,
-                                         _speed=self.init_speed)
-                # go slowly to strongest visible cell
-                self.go_strongest_cell(_speed=self.init_speed)
-                self.c5 = time.time()
-                self.data2web()
-            except ConnectionError:
-                self.close("main.mode_init() scan.scan_one_cycle - ConnectionError")
+            while self.run_trigger and self.th_run and not self.cell_hdg_list:
+                try:
+                    self.scan.scan_one_cycle(_resolution=self.scan_resolution,
+                                             _lte_duration=self.scan_durration,
+                                             _speed=self.init_speed)
+                    # go slowly to strongest visible cell
+                    self.go_strongest_cell(_speed=self.init_speed)
+                    self.c5 = time.time()
+                    self.data2web()
+                except ConnectionError:
+                    self.close("main.mode_init() scan.scan_one_cycle - ConnectionError")
         except ConnectionError:
             self.close("main.mode_init() ardu.set_servo - ConnectionError")
 
@@ -268,51 +269,50 @@ class Main:
         # if active cell get badder, switch to next visible cell
         # TODO Set configs before start
         self.mode_init()
-        # TODO Loop if no cell_hdg_list > new scan
-        if self.cell_hdg_list:       # No results in first scan
-            _c1 = time.time()        # scan_time_passiv
-            _c2 = _c1                # scan_time_cell
-            _c3 = _c1                # new_servo_set_time
-            _c4 = _c1                #
-            _c5 = _c1                # web2data_timer
-            while self.run_trigger and self.th_run:
-                if self.chk_loop_time(_c1, self.scan_time_passiv):  # Passive scan
-                    self.pasv_scan()                 # OK
-                    _c1 = time.time()
 
-                if self.chk_loop_time(_c2, self.scan_time_cell):        # Active scan
-                    # self.cell_scan()               # OK
-                    _c2 = time.time()
-                    _c1 = time.time()
+        _c1 = time.time()        # scan_time_passiv
+        _c2 = _c1                # scan_time_cell
+        _c3 = _c1                # new_servo_set_time
+        _c4 = _c1                #
+        _c5 = _c1                # web2data_timer
+        while self.run_trigger and self.th_run:
+            if self.chk_loop_time(_c1, self.scan_time_passiv):  # Passive scan
+                self.pasv_scan()                 # OK
+                _c1 = time.time()
 
-                # Check if stronger cell is available
-                '''
-                # Should be ok
-                # can be triggered if sig under threshold
-                if _c3 > self.new_servo_set_time:
-                    self.go_strongest_cell(_speed=self.cell_speed)
-                    _c3 = 0
-                else:
-                    _c3 += 1
-                '''
-                # Check if signal is over threshold
-                if self.chk_loop_time(_c3, self.new_servo_set_time):
-                    # self.chk_sig_in_threshold()   # Not tested
-                    self.chk_no_scanned_array()  # OK > FIXME Ardus overflow is ...
-                    _c3 = time.time()
+            if self.chk_loop_time(_c2, self.scan_time_cell):        # Active scan
+                # self.cell_scan()               # OK
+                _c2 = time.time()
+                _c1 = time.time()
 
-                # Check if none scanned range is visible
+            # Check if stronger cell is available
+            '''
+            # Should be ok
+            # can be triggered if sig under threshold
+            if _c3 > self.new_servo_set_time:
+                self.go_strongest_cell(_speed=self.cell_speed)
+                _c3 = 0
+            else:
+                _c3 += 1
+            '''
+            # Check if signal is over threshold
+            if self.chk_loop_time(_c3, self.new_servo_set_time):
+                # self.chk_sig_in_threshold()   # Not tested
+                self.chk_no_scanned_array()  # OK > FIXME Ardus overflow is ...
+                _c3 = time.time()
 
-                # Check if active cell is visible
-                if self.chk_loop_time(_c4, 5):
-                    self.chk_act_cell_vis()         # OK
-                    _c4 = time.time()
+            # Check if none scanned range is visible
 
-                # Check data2web timer
-                if self.chk_loop_time(self.c5, self.web2data_timmer) and self.call_web2data:
-                    self.data2web()
+            # Check if active cell is visible
+            if self.chk_loop_time(_c4, 5):
+                self.chk_act_cell_vis()         # OK
+                _c4 = time.time()
 
-                time.sleep(0.5)
+            # Check data2web timer
+            if self.chk_loop_time(self.c5, self.web2data_timmer) and self.call_web2data:
+                self.data2web()
+
+            time.sleep(1)
         self.th_run = False
 
     def mode_trip(self):
