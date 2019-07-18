@@ -14,9 +14,9 @@ class LTEStick:
         try:
             self.client = Client(AuthorizedConnection(stick_addi))
             self.run_trigger = True
-        except Exception:
+        except Exception as e:
             print("Connection2Modem Error ...")
-            raise
+            raise e
 
         self.net_mode = self.get_net_mode()
 
@@ -69,9 +69,9 @@ class LTEStick:
             time.sleep(30)
             self.run_trigger = True
             return True
-        except Exception:
+        except Exception as e:
             self.run_trigger = False
-            raise
+            raise e
         return False
 
     def get_net_mode(self):
@@ -111,9 +111,8 @@ class LTEStick:
                 e_c = 0
                 while self.client.device.signal()['mode'] is None:
                     if e_c > 10:
-                        print("Error.. None Net Mode after changing Net Mode .. No NET ??")
-                        self.run_trigger = False
-                        raise ConnectionError
+                        print("Error.. None Net Mode after changing Net Mode .. No NET !!")
+                        return net_mode
                     time.sleep(1)
                     e_c += 1
 
@@ -121,10 +120,10 @@ class LTEStick:
                 self.net_mode = int(net_mode)
                 time.sleep(3)
                 return net_mode
-            except Exception:
+            except Exception as e:
                 print("Error.. while trying to set Net Mode ..")
                 self.run_trigger = False
-                raise
+                raise e
             return False
         else:
             return False
@@ -137,6 +136,6 @@ class LTEStick:
             }[self.net_mode]
             try:
                 self.set_net_mode(_f)
-            except ConnectionError:
+            except Exception as e:
                 self.run_trigger = False
-                raise
+                raise e

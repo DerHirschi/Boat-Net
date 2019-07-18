@@ -129,8 +129,8 @@ class ScanSignals:
     def set_servo_hdg(self, _val, _speed=2):
         try:
             self.arduino.set_servo(servo=1, _val=_val, _speed=_speed, wait_servo_confirm=True)
-        except ConnectionError:
-            raise
+        except Exception as e:
+            raise e
 
     def scan_hdg_range(self, _hdg_list, _net_mode, _servo_speed=2, _resolution=32, _lte_duration=5):
         _step = self.calc_steps(_resolution)
@@ -144,8 +144,8 @@ class ScanSignals:
                 if self.check_if_in_vis_hdg(_n_start):
                     try:
                         self.set_servo_hdg(_n_start, _servo_speed)
-                    except ConnectionError:
-                        raise
+                    except Exception as e:
+                        raise e
                     self.get_lte_signals_avg(_duration=_lte_duration, _hdg=_n_start, _resolution=_resolution)
                 _n_start += _step
         self.get_cells(_net_mode)
@@ -170,8 +170,8 @@ class ScanSignals:
                     break
             try:
                 self.set_servo_hdg(_val, _servo_speed)
-            except ConnectionError:
-                raise
+            except Exception as e:
+                raise e
             self.get_lte_signals_avg(_duration=_lte_duration, _hdg=_val, _resolution=_resolution)
             _n += _step
         self.get_cells(self.lte_stick.net_mode)
@@ -184,8 +184,8 @@ class ScanSignals:
             _net_mode = 2
             try:
                 self.lte_stick.set_net_mode(_net_mode)
-            except ConnectionError:
-                raise
+            except Exception as e:
+                raise e
         for _n in range(2):
             if self.run_trigger:
                 try:
@@ -193,13 +193,13 @@ class ScanSignals:
                                          _servo_speed=_speed,
                                          _lte_duration=_lte_duration,
                                          _loop=bool(1 - _n))
-                except ConnectionError:
-                    raise
+                except Exception as e:
+                    raise e
                 if not _n:
                     try:
                         self.lte_stick.switch_net_mode()
-                    except ConnectionError:
-                        raise
+                    except Exception as e:
+                        raise e
 
         self.run_trigger = False
 
@@ -224,8 +224,8 @@ class ScanSignals:
                 log("Timed Thread", 9)
                 try:
                     self.scan_full_range(_resolution=_resolution, _loop=_lo, _lte_duration=_lte_duration)
-                except ConnectionError:
-                    raise
+                except Exception as e:
+                    raise e
                 if _lo:
                     _lo = False
                 else:
@@ -240,9 +240,9 @@ class ScanSignals:
                         _net_mode = 2
                     try:
                         self.lte_stick.set_net_mode(_net_mode)
-                    except ConnectionError:
+                    except Exception as e:
                         self.run_trigger = False
-                        raise
+                        raise e
                 if (time.time() - ti) > _timer:
                     break
         else:
@@ -253,8 +253,8 @@ class ScanSignals:
                 log("Scan Nr: " + str(n), 9)
                 try:
                     self.scan_full_range(_resolution=_resolution, _loop=_lo)
-                except ConnectionError:
-                    raise
+                except Exception as e:
+                    raise e
                 if _lo:
                     _lo = False
                 else:
@@ -270,8 +270,8 @@ class ScanSignals:
                     log("Switch Band " + str(_net_mode), 9)
                     try:
                         self.lte_stick.set_net_mode(_net_mode)
-                    except ConnectionError:
-                        raise
+                    except Exception as e:
+                        raise e
         self.run_trigger = False
 
     def run_scan_cycle_thread(self, duration=2, timer=-1, resolution=32, lte_duration=7):

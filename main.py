@@ -5,7 +5,7 @@ from etc.log import log
 from config import lte_stick_addi_1 as modem1
 import threading
 import time
-# from web_gui.data2web import Data2Web
+import os
 
 
 class Main:
@@ -20,10 +20,6 @@ class Main:
         self.thread = None          # Thread var to join the thread
         # TODO better loop timing system
         # Config TODO gather config vars in config.py
-        # self.web_out = True             # Run extra threaded loop for putting data ou to website
-        # self.plot_sigs = True           # Plot signal graphs out
-        # self.plot_time = 360            # Time to check for new data to Plot it out
-
         self.scan_time_passiv = 10      # Scan without move antenna. Just get signals
         self.scan_time_cell = 600       # Scan cell with move antenna. Just get signals
         self.new_servo_set_time = 10    # Time if check if a stronger cell is available
@@ -31,7 +27,10 @@ class Main:
         self.scan_durration = 5         # Duration of scanned signals from LTE stick
         self.init_speed = 250           # Servo Speed for initialization scan
         self.cell_speed = 400           # Servo Speed for cell scan
+        self.web2data_timmer = 500        # minimum wait if new plot can called
         # Flags
+        self.call_web2data = False
+        self.c5 = time.time()
         self.cell_hdg_list = []
         # Arduino
         try:
@@ -40,16 +39,16 @@ class Main:
             self.ardu.set_servo(_val=512, _speed=200, wait_servo_confirm=True)
             self.ardu.toggle_servos(True)
             self.run_trigger = True
-        except ConnectionError:
-            print("Arduino failed")
+        except Exception as e:
+            self.close("Arduino failed - " + str(e))
 
         if self.run_trigger:
             # LTE
             try:
                 print("LTE init")
                 self.lte = self.init_lte(modem)
-            except ConnectionError:
-                print("LTE failed")
+            except Exception as e:
+                self.close("LTE failed - " + str(e))
                 self.run_trigger = False
             # Scan & Web
             if self.run_trigger:
@@ -70,8 +69,8 @@ class Main:
                     self.scan.null_hdg                              # Get temp values from old Scan session
                 try:                                                # Try reinitialize Arduino
                     self.ardu = self.init_ardu()
-                except ConnectionError:
-                    print("Arduino reinit failed !!!")
+                except Exception as e:
+                    self.close("Arduino reinit failed !!! - " + str(e))
                     self.run_trigger = False
                     break
                 self.ardu.servo_on = temp_ardu[0]                   # Write back temp values to Arduino
@@ -86,8 +85,8 @@ class Main:
                 _t = False
                 try:
                     _t = self.lte.reboot()                              # Try to reboot Stick
-                except ConnectionError:
-                    self.close("main.reinit_check() lte.reboot - ConnectionError")
+                except Exception as e:
+                    self.close("main.reinit_check() lte.reboot - " + str(e))
                 if not _t:
                     self.close()
             time.sleep(1)
@@ -96,14 +95,14 @@ class Main:
     def init_ardu(self):
         try:
             return ArduCom()
-        except (ConnectionError, ConnectionAbortedError) as e:
-            raise ConnectionError('Connection Error') from e
+        except Exception as e:
+            raise e
 
     def init_lte(self, modem):
         try:
             return LTEStick(modem)
-        except ConnectionError:
-            raise
+        except Exception as e:
+            raise e
 
     def init_scan(self):
         return ScanSignals(_lte_stick=self.lte, _ardu=self.ardu)
@@ -116,20 +115,25 @@ class Main:
         self.scan.run_trigger = False
         self.ardu.run_trigger = False
 
+    def data2web(self):
+        os.system('python3 data2web.py &')
+        self.c5 = time.time()
+        self.call_web2data = False
+
     def go_strongest_cell(self, _net_mode=1, _speed=2):
         # _net_mode 1 = Auto
         _hdg = self.scan.get_best_cell_hdg(_mode=_net_mode)
         if _hdg:
             try:
                 self.scan.set_servo_hdg(_val=_hdg[0], _speed=_speed)
-            except ConnectionError:
-                self.close("go_strongest_cell() set_servo_hdg() ConnectionError")
+            except Exception as e:
+                self.close("go_strongest_cell() set_servo_hdg() - " + str(e))
 
             if _hdg[1] != self.lte.net_mode:
                 try:
                     self.lte.set_net_mode(_hdg[1])
-                except ConnectionError:
-                    self.close("main.go_strongest_cell() set_net_mode - ConnectionError")
+                except Exception as e:
+                    self.close("main.go_strongest_cell() set_net_mode -  " + str(e))
             self.cell_hdg_list = self.scan.get_cell_dict(self.lte.net_mode)[_hdg[2]]
         else:
             self.cell_hdg_list = []
@@ -150,16 +154,18 @@ class Main:
             log("chk_sig_in_threshold new cell hdg list  " + str(self.cell_hdg_list), 9)
 
     def chk_no_scanned_array(self):
+        _t = False
         for _n in range(2):
             _le = len(self.scan.get_scanres_dict(self.lte.net_mode))
             if _le < self.scan.N:
                 log("", 9)
                 log("chk_no_scanned_array T 1", 9)
-                _le = int(round((self.scan.N - _le) / 4))
+                _le = int((self.scan.N - _le) / 2)   # FIXME _le get smaller and smaller. Also servo gets nervous
                 _vis_hdg_not_scan = self.scan.get_not_scanned_vis_hdg(self.lte.net_mode)[0]
                 if _n:
                     _vis_hdg_not_scan = _vis_hdg_not_scan[::-1]
                 if len(_vis_hdg_not_scan) > _le:  # if more than 1/3 of not scanned array is visible, scan it
+                    _t = True
                     # print("more than 1/3 vis")
                     log("chk_no_scanned_array T 2", 9)
                     try:
@@ -169,12 +175,17 @@ class Main:
                                                  self.cell_speed,
                                                  self.scan_resolution,
                                                  self.scan_durration)
-                    except ConnectionError:
-                        self.close("main.chk_no_scanned_array() scan_hdg_range - ConnectionError")
-            if not _n:
-                self.lte.switch_net_mode()
+                    except Exception as e:
+                        self.close("main.chk_no_scanned_array() scan_hdg_range - " + str(e))
+                if _n and _t:
+                    self.go_strongest_cell(_speed=self.cell_speed)
+                    self.call_web2data = True
 
-        self.go_strongest_cell(_speed=self.cell_speed)
+            if not _n:
+                try:
+                    self.lte.switch_net_mode()
+                except Exception as e:
+                    self.close("main.chk_no_scanned_array()  switch_net_mode - " + str(e))
 
     def cell_scan(self):
         log("", 9)
@@ -188,6 +199,7 @@ class Main:
         except ConnectionError:
             self.close("main.cell_scan() scan_hdg_range ConnectionError")
         self.go_strongest_cell(_speed=self.cell_speed)
+        self.call_web2data = True
 
     def pasv_scan(self):
         log("", 9)
@@ -196,6 +208,12 @@ class Main:
                                       self.scan_resolution,
                                       self.scan_durration)
         self.scan.get_cells(self.lte.net_mode)
+
+    @staticmethod
+    def chk_loop_time(_time, _threshold):
+        if (time.time() - _time) >= _threshold:
+            return True
+        return False
 
     def mode_init(self):
         log("", 9)
@@ -219,6 +237,8 @@ class Main:
 
         # go slowly to strongest visible cell
         self.go_strongest_cell(_speed=self.init_speed)
+        self.c5 = time.time()
+        self.data2web()
 
     def mode_marina(self):
         # Moored boat at the marina without hdg changes
@@ -247,22 +267,20 @@ class Main:
         self.mode_init()
         # TODO Loop if no cell_hdg_list > new scan
         if self.cell_hdg_list:       # No results in first scan
-            _c1 = 0         # TODO better loop timing system
-            _c2 = 0         # TODO better loop timing system
-            _c3 = 0         # TODO better loop timing system
+            _c1 = time.time()        # scan_time_passiv
+            _c2 = _c1                # scan_time_cell
+            _c3 = _c1                # new_servo_set_time
+            _c4 = _c1                #
+            _c5 = _c1                # web2data_timer
             while self.run_trigger and self.th_run:
-                if _c1 > self.scan_time_passiv:      # Passive scan
+                if self.chk_loop_time(_c1, self.scan_time_passiv):  # Passive scan
                     self.pasv_scan()                 # OK
-                    _c1 = 0
-                else:
-                    _c1 += 1
+                    _c1 = time.time()
 
-                if _c2 > self.scan_time_cell:        # Active scan
+                if self.chk_loop_time(_c2, self.scan_time_cell):        # Active scan
                     # self.cell_scan()               # OK
-                    _c2 = 0
-                    _c1 = 0
-                else:
-                    _c2 += 1
+                    _c2 = time.time()
+                    _c1 = time.time()
 
                 # Check if stronger cell is available
                 '''
@@ -275,18 +293,23 @@ class Main:
                     _c3 += 1
                 '''
                 # Check if signal is over threshold
-                if _c3 > self.new_servo_set_time:
+                if self.chk_loop_time(_c3, self.new_servo_set_time):
                     # self.chk_sig_in_threshold()   # Not tested
-                    _c3 = 0
-                else:
-                    _c3 += 1
+                    self.chk_no_scanned_array()  # OK > FIXME Ardus overflow is ...
+                    _c3 = time.time()
 
                 # Check if none scanned range is visible
-                self.chk_no_scanned_array()     # OK > FIXME Ardus overflow is ...
-                # Check if active cell is visible
-                self.chk_act_cell_vis()         # OK
 
-                time.sleep(1)
+                # Check if active cell is visible
+                if self.chk_loop_time(_c4, 5):
+                    self.chk_act_cell_vis()         # OK
+                    _c4 = time.time()
+
+                # Check data2web timer
+                if self.chk_loop_time(self.c5, self.web2data_timmer) and self.call_web2data:
+                    self.data2web()
+
+                time.sleep(0.5)
         self.th_run = False
 
     def mode_trip(self):
@@ -315,8 +338,12 @@ if __name__ == '__main__':
         try:
             main.mode_anchor()
         except KeyboardInterrupt:
-            # threading.Thread(target=main.ardu.set_servo, args=(1, 512, 500, True, True)).start()
             print('wird geschlossen')
+            try:
+                main.ardu.set_servo(1, 512, 300, False, True)
+            except ConnectionError:
+                print("Das wars E")
+                main.close()
             # print('Plot 1 wird erstellt')
             # main.web.plot_lte_signals(2)
             # print('Plot 2 wird erstellt')
