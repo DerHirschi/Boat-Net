@@ -1,11 +1,15 @@
 import numpy as np
 import matplotlib.cm as cm
-import matplotlib.pyplot as plt
+import os
 import shutil
 import config
 import time
 from etc.var import overflow_value, change_file_ext, map_val
 from etc.log import log
+import matplotlib as mpl
+if not os.environ.get('DISPLAY'):     # Get an Error from python.tk.. Solution from:
+    mpl.use('Agg')
+import matplotlib.pyplot as plt
 
 
 class Data2Web:

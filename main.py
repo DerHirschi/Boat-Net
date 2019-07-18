@@ -3,12 +3,8 @@ from fnc.ardu_com import ArduCom
 from fnc.scan_fnc import ScanSignals
 from etc.log import log
 from config import lte_stick_addi_1 as modem1
-import os
 import threading
 import time
-import matplotlib as mpl
-if not os.environ.get('DISPLAY'):     # Get an Error from python.tk.. Solution from:
-    mpl.use('Agg')                    # https://forum.ubuntuusers.de/topic/python3-matplotlib-pyplot-funktioniert-nicht/
 from web_gui.data2web import Data2Web # Python.tk import bug.
 
 
@@ -24,8 +20,12 @@ class Main:
         self.thread = None          # Thread var to join the thread
         # TODO better loop timing system
         # Config TODO gather config vars in config.py
-        self.scan_time_passiv = 20      # Scan without move antenna. Just get signals
-        self.scan_time_cell = 60       # Scan cell with move antenna. Just get signals
+        # self.web_out = True             # Run extra threaded loop for putting data ou to website
+        # self.plot_sigs = True           # Plot signal graphs out
+        # self.plot_time = 360            # Time to check for new data to Plot it out
+
+        self.scan_time_passiv = 10      # Scan without move antenna. Just get signals
+        self.scan_time_cell = 600       # Scan cell with move antenna. Just get signals
         self.new_servo_set_time = 10    # Time if check if a stronger cell is available
         self.scan_resolution = 40       # Resolution of scans
         self.scan_durration = 5         # Duration of scanned signals from LTE stick
@@ -150,25 +150,31 @@ class Main:
             log("chk_sig_in_threshold new cell hdg list  " + str(self.cell_hdg_list), 9)
 
     def chk_no_scanned_array(self):
-        _le = len(self.scan.get_scanres_dict(self.lte.net_mode))
-        if _le < self.scan.N:
-            log("", 9)
-            log("chk_no_scanned_array T 1", 9)
-            _le = int(round((self.scan.N - _le) / 4))
-            _vis_hdg_not_scan = self.scan.get_not_scanned_vis_hdg(self.lte.net_mode)[0]
-            if len(_vis_hdg_not_scan) > _le:  # if more than 1/3 of not scanned array is visible, scan it
-                # print("more than 1/3 vis")
-                log("chk_no_scanned_array T 2", 9)
-                try:
-                    # FIXME Ardus overflow is ........
-                    self.scan.scan_hdg_range(_vis_hdg_not_scan,
-                                             self.lte.net_mode,
-                                             self.cell_speed,
-                                             self.scan_resolution,
-                                             self.scan_durration)
-                except ConnectionError:
-                    self.close("main.chk_no_scanned_array() scan_hdg_range - ConnectionError")
-                self.go_strongest_cell(_speed=self.cell_speed)
+        for _n in range(2):
+            _le = len(self.scan.get_scanres_dict(self.lte.net_mode))
+            if _le < self.scan.N:
+                log("", 9)
+                log("chk_no_scanned_array T 1", 9)
+                _le = int(round((self.scan.N - _le) / 4))
+                _vis_hdg_not_scan = self.scan.get_not_scanned_vis_hdg(self.lte.net_mode)[0]
+                if _n:
+                    _vis_hdg_not_scan = _vis_hdg_not_scan[::-1]
+                if len(_vis_hdg_not_scan) > _le:  # if more than 1/3 of not scanned array is visible, scan it
+                    # print("more than 1/3 vis")
+                    log("chk_no_scanned_array T 2", 9)
+                    try:
+                        # FIXME Ardus overflow is ........
+                        self.scan.scan_hdg_range(_vis_hdg_not_scan,
+                                                 self.lte.net_mode,
+                                                 self.cell_speed,
+                                                 self.scan_resolution,
+                                                 self.scan_durration)
+                    except ConnectionError:
+                        self.close("main.chk_no_scanned_array() scan_hdg_range - ConnectionError")
+            if not _n:
+                self.lte.switch_net_mode()
+
+        self.go_strongest_cell(_speed=self.cell_speed)
 
     def cell_scan(self):
         log("", 9)
