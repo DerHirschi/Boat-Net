@@ -39,7 +39,6 @@ class ArduCom:
             print("Handshake failed !")
             self.run_trigger = False
             self.close()
-            raise ConnectionAbortedError
 
     def close(self):
         self.ser.close()
@@ -108,7 +107,9 @@ class ArduCom:
             # print('ACK-Recv :' + str(self.ack))
         # Heading
         elif 'HDG' in buffer_in:    # TODO make other smaller unique flag(maybe one byte). got lot of data form Ardu
-            self.heading = float(buffer_in[3:])
+            _temp = buffer_in[3:]
+            if _temp.replace(".", "", 1).isdigit():
+                self.heading = float(_temp)
         # Gimbal lock Heading
         elif 'LH' in buffer_in:     # TODO data behind flag. bool 1 or so
             self.lock_hdg = float(buffer_in[2:])

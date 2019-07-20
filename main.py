@@ -36,9 +36,10 @@ class Main:
         try:
             print("Arduino init")
             self.ardu = self.init_ardu()
-            self.ardu.set_servo(_val=512, _speed=200, wait_servo_confirm=True)
-            self.ardu.toggle_servos(True)
-            self.run_trigger = True
+            if self.ardu.run_trigger:
+                self.ardu.set_servo(_val=512, _speed=200, wait_servo_confirm=True)
+                self.ardu.toggle_servos(True)
+                self.run_trigger = True
         except Exception as e:
             self.close("Arduino failed - " + str(e))
 
@@ -112,8 +113,10 @@ class Main:
             print(str(_e_in))
         self.run_trigger = False
         self.th_run = False
-        self.scan.run_trigger = False
-        self.ardu.run_trigger = False
+        if self.scan.run_trigger:
+            self.scan.run_trigger = False
+        if self.ardu.run_trigger:
+            self.ardu.run_trigger = False
 
     def data2web(self):
         os.system('python3 data2web.py &')
