@@ -370,6 +370,7 @@ void main_loop() {
 		Mag_y_hor = Mag_y;
 	  }
 	  */
+
 	  // ----- Dampen any data fluctuations
 	  Mag_x_dampened = Mag_x_dampened * 0.9 + Mag_x_hor * 0.1;
 	  Mag_y_dampened = Mag_y_dampened * 0.9 + Mag_y_hor * 0.1;
