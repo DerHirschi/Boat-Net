@@ -380,7 +380,7 @@ void main_loop() {
 	  // ----- Correct for True North
 	  Heading += Declination;                                   // Geographic North
 	  // ----- Allow for under/overflow
-	  //Heading = heading_overflow(Heading);
+	  Heading = heading_overflow(Heading);
 }
 
 // ----------------------------
@@ -730,9 +730,23 @@ void adjust_servos() {
 		serv_max_angle = serv_min_angle + serv_max_angle;
 	}	
 	
+	// !! float temp_head = heading_overflow(Heading - H_buffer + serv_min_angle );
 	float temp_head = (Heading - H_buffer + serv_min_angle);
+	//Serial.println("3temp_head: " + (String)temp_head);
+	// org int map_val = map(temp_head, serv_min_angle, serv_max_angle, SERV_MIN, SERV_MAX);
 	temp_head = map(temp_head, -360, 360, -serv_N_ms, serv_N_ms);
+	//int map_val = map(temp_head, 0, 360, 0, serv_N_ms);
+	//Serial.println("4map_val: " + (String)map_val);
+	// !! int map_val = temp_head + serv_slowmv_val_buffer;  
+	 
+	// int map_val = int(temp_head + serv_slowmv_val_buffer) % int(serv_N_ms + 544);
 	int map_val = int(temp_head + serv_slowmv_val_buffer) % int(serv_N_ms);
+	//if(temp_val != serv_slowmv_val_buffer) {
+	//	temp_val = serv_slowmv_val_buffer;
+	//	Serial.println("SER  serv_slowmv_val_buffer" + (String)serv_slowmv_val_buffer);
+	//	Serial.println("SER  map_val" + (String)map_val);
+	//	Serial.println("SER  temp_head" + (String)temp_head);
+	//}
 	map_val		= max(map_val, SERV_MIN);  
 	map_val		= min(map_val, SERV_MAX);  
 	servo1.writeMicroseconds(map_val);	
