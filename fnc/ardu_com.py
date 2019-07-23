@@ -108,6 +108,7 @@ class ArduCom:
         # Heading
         elif 'HDG' in buffer_in:    # TODO make other smaller unique flag(maybe one byte). got lot of data form Ardu
             _temp = buffer_in[3:]
+            # print("HDG: " + str(_temp))
             if _temp.replace(".", "", 1).isdigit():
                 self.heading = float(_temp)
         # Gimbal lock Heading

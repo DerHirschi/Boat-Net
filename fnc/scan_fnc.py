@@ -110,8 +110,8 @@ class ScanSignals:
         _res = []
         for _i in range(self.val_range + 1):
             _flag = _hdg_min + _i
-            if _flag > 0:
-                _flag = overflow_value(_flag, self.N)
+            # if _flag > 0:
+            _flag = overflow_value(_flag, self.N)
             _res.append(_flag)
         return _res                     # Returns a list of hdg
 
@@ -295,7 +295,7 @@ class ScanSignals:
                 3: self.cells_4G
             }[_mode]
             _e_index = 0
-            _flag_excl = _exclude[0]
+            _flag_excl = _exclude[0] - 1
             _cell_keys = sorted(_cells.keys(), reverse=True)
             if _mode == 1:
                 _flag = self.cells_4G

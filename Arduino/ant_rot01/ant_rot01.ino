@@ -361,16 +361,6 @@ void main_loop() {
 	  Mag_x_hor = Mag_x * cos(Mag_pitch) + Mag_y * sin(Mag_roll) * sin(Mag_pitch) - Mag_z * cos(Mag_roll) * sin(Mag_pitch);
 	  Mag_y_hor = Mag_y * cos(Mag_roll) + Mag_z * sin(Mag_roll);
 
-	  // ----- Disable tilt stabization if switch closed
-	  /*
-	  if (!(Switch, digitalRead(Switch)))
-	  {
-		// ---- Test equations
-		Mag_x_hor = Mag_x;
-		Mag_y_hor = Mag_y;
-	  }
-	  */
-
 	  // ----- Dampen any data fluctuations
 	  Mag_x_dampened = Mag_x_dampened * 0.9 + Mag_x_hor * 0.1;
 	  Mag_y_dampened = Mag_y_dampened * 0.9 + Mag_y_hor * 0.1;
@@ -378,7 +368,7 @@ void main_loop() {
 	  // ----- Calculate the heading
 	  Heading = atan2(Mag_x_dampened, Mag_y_dampened) * RAD_TO_DEG;  // Magnetic North
 	  // ----- Correct for True North
-	  Heading += Declination;                                   // Geographic North
+	  // Heading += Declination;                                   // Geographic North
 	  // ----- Allow for under/overflow
 	  Heading = heading_overflow(Heading);
 }
@@ -705,17 +695,16 @@ float heading_overflow(float h_in) {
 }
 */
 float heading_overflow(float h_in) {	
+	
 	if (h_in >= 360) { 
 		h_in -= 360;    
-    //Serial.println("DEB1 - " + (String)h_in);
-    // String st = (String)h_in; // LOL .. WHY ?? whitout this, it dosn t work..
 		
 	}
 	if (h_in < 0) {		
 		h_in +=  360;
-		//Serial.println("DEB1 + " + (String)h_in);
 		
 	}		
+	
   return h_in;
 }
 
@@ -730,23 +719,9 @@ void adjust_servos() {
 		serv_max_angle = serv_min_angle + serv_max_angle;
 	}	
 	
-	// !! float temp_head = heading_overflow(Heading - H_buffer + serv_min_angle );
 	float temp_head = (Heading - H_buffer + serv_min_angle);
-	//Serial.println("3temp_head: " + (String)temp_head);
-	// org int map_val = map(temp_head, serv_min_angle, serv_max_angle, SERV_MIN, SERV_MAX);
 	temp_head = map(temp_head, -360, 360, -serv_N_ms, serv_N_ms);
-	//int map_val = map(temp_head, 0, 360, 0, serv_N_ms);
-	//Serial.println("4map_val: " + (String)map_val);
-	// !! int map_val = temp_head + serv_slowmv_val_buffer;  
-	 
-	// int map_val = int(temp_head + serv_slowmv_val_buffer) % int(serv_N_ms + 544);
 	int map_val = int(temp_head + serv_slowmv_val_buffer) % int(serv_N_ms);
-	//if(temp_val != serv_slowmv_val_buffer) {
-	//	temp_val = serv_slowmv_val_buffer;
-	//	Serial.println("SER  serv_slowmv_val_buffer" + (String)serv_slowmv_val_buffer);
-	//	Serial.println("SER  map_val" + (String)map_val);
-	//	Serial.println("SER  temp_head" + (String)temp_head);
-	//}
 	map_val		= max(map_val, SERV_MIN);  
 	map_val		= min(map_val, SERV_MAX);  
 	servo1.writeMicroseconds(map_val);	

@@ -23,11 +23,11 @@ class Main:
         self.scan_time_passiv = 10      # Scan without move antenna. Just get signals
         self.scan_time_cell = 600       # Scan cell with move antenna. Just get signals
         self.new_servo_set_time = 10    # Time if check if a stronger cell is available
-        self.scan_resolution = 40       # Resolution of scans
+        self.scan_resolution = 32       # Resolution of scans
         self.scan_durration = 5         # Duration of scanned signals from LTE stick
-        self.init_speed = 250           # Servo Speed for initialization scan
-        self.cell_speed = 400           # Servo Speed for cell scan
-        self.web2data_timmer = 500        # minimum wait if new plot can called
+        self.init_speed = 100           # Servo Speed for initialization scan
+        self.cell_speed = 150           # Servo Speed for cell scan
+        self.web2data_timmer = 600        # minimum wait if new plot can called
         # Flags
         self.call_web2data = False
         self.c5 = time.time()
@@ -287,17 +287,6 @@ class Main:
                 # self.cell_scan()               # OK
                 _c2 = time.time()
                 _c1 = time.time()
-
-            # Check if stronger cell is available
-            '''
-            # Should be ok
-            # can be triggered if sig under threshold
-            if _c3 > self.new_servo_set_time:
-                self.go_strongest_cell(_speed=self.cell_speed)
-                _c3 = 0
-            else:
-                _c3 += 1
-            '''
             # Check if signal is over threshold
             if self.chk_loop_time(_c3, self.new_servo_set_time):
                 # self.chk_sig_in_threshold()   # Not tested
