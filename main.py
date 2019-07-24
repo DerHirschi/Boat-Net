@@ -20,14 +20,13 @@ class Main:
         self.thread = None          # Thread var to join the thread
         # TODO better loop timing system
         # Config TODO gather config vars in config.py
-        self.scan_time_passiv = 10      # Scan without move antenna. Just get signals
-        self.scan_time_cell = 600       # Scan cell with move antenna. Just get signals
-        self.new_servo_set_time = 10    # Time if check if a stronger cell is available
+        self.scan_time_passiv = 5       # Scan without move antenna. Just get signals # Check if active cell is visible
+        self.new_servo_set_time = 10    # Check if none scanned range is visible
+        self.web2data_timer = 600       # minimum wait if new plot can called
         self.scan_resolution = 32       # Resolution of scans
         self.scan_durration = 5         # Duration of scanned signals from LTE stick
         self.init_speed = 100           # Servo Speed for initialization scan
         self.cell_speed = 150           # Servo Speed for cell scan
-        self.web2data_timmer = 600        # minimum wait if new plot can called
         # Flags
         self.call_web2data = False
         self.c5 = time.time()
@@ -119,6 +118,8 @@ class Main:
             self.ardu.run_trigger = False
 
     def data2web(self):
+        for _i in [2, 3]:
+            self.scan.save_dict(_i)                    # Save data 2 File
         os.system('python3 data2web.py &')
         self.c5 = time.time()
         self.call_web2data = False
@@ -146,7 +147,6 @@ class Main:
 
     def chk_act_cell_vis(self):
         if not self.scan.check_if_in_vis_hdg(self.ardu.servo_val):
-            log("", 9)
             log("chk_act_cell_vis ", 9)
             self.go_strongest_cell(_speed=self.cell_speed)
 
@@ -167,10 +167,9 @@ class Main:
                 _le = int((self.scan.N - _le) / 2)   # FIXME _le get smaller and smaller. Also servo gets nervous
                 _vis_hdg_not_scan = self.scan.get_not_scanned_vis_hdg(self.lte.net_mode)[0]
                 if len(_vis_hdg_not_scan) >= _le:  # if more than 1/3 of not scanned array is visible, scan it
-                    log("", 9)
                     log("chk_no_scanned_array > " + str(_n), 9)
-                    if _n:
-                        _vis_hdg_not_scan = _vis_hdg_not_scan[::-1]
+                    # if _n:
+                    #     _vis_hdg_not_scan = _vis_hdg_not_scan[::-1]
                     try:
                         self.scan.scan_hdg_range(_vis_hdg_not_scan,
                                                  self.lte.net_mode,
@@ -194,7 +193,6 @@ class Main:
                 self.call_web2data = True
 
     def cell_scan(self):
-        log("", 9)
         log("cell_scan ", 9)
         try:
             self.scan.scan_hdg_range(self.cell_hdg_list,
@@ -208,7 +206,6 @@ class Main:
             self.close("main.cell_scan() scan_hdg_range ConnectionError")
 
     def pasv_scan(self):
-        log("", 9)
         log("pasv_scan ", 9)
         self.scan.get_lte_signals_avg(self.ardu.servo_val,
                                       self.scan_resolution,
@@ -223,7 +220,6 @@ class Main:
         return False
 
     def mode_init(self):
-        log("", 9)
         log("mode_init ", 9)
         # Set run Trigger
         self.th_run = True
@@ -274,37 +270,24 @@ class Main:
         self.mode_init()
 
         _c1 = time.time()        # scan_time_passiv
-        _c2 = _c1                # scan_time_cell
         _c3 = _c1                # new_servo_set_time
-        _c4 = _c1                #
-        _c5 = _c1                # web2data_timer
         while self.run_trigger and self.th_run:
-            if self.chk_loop_time(_c1, self.scan_time_passiv):  # Passive scan
+            # Passive scan  # Check if active cell is visible
+            if self.chk_loop_time(_c1, self.scan_time_passiv):
                 self.pasv_scan()                 # OK
+                self.chk_act_cell_vis()
                 _c1 = time.time()
-
-            if self.chk_loop_time(_c2, self.scan_time_cell):        # Active scan
-                # self.cell_scan()               # OK
-                _c2 = time.time()
-                _c1 = time.time()
-            # Check if signal is over threshold
-            if self.chk_loop_time(_c3, self.new_servo_set_time):
-                # self.chk_sig_in_threshold()   # Not tested
-                self.chk_no_scanned_array()  # OK > FIXME Ardus overflow is ...
-                _c3 = time.time()
 
             # Check if none scanned range is visible
-
-            # Check if active cell is visible
-            if self.chk_loop_time(_c4, 5):
-                self.chk_act_cell_vis()         # OK
-                _c4 = time.time()
+            if self.chk_loop_time(_c3, self.new_servo_set_time):
+                self.chk_no_scanned_array()
+                _c3 = time.time()
 
             # Check data2web timer
-            if self.chk_loop_time(self.c5, self.web2data_timmer) and self.call_web2data:
+            if self.chk_loop_time(self.c5, self.web2data_timer) and self.call_web2data:
                 self.data2web()
 
-            time.sleep(1)
+            time.sleep(0.5)
         self.th_run = False
 
     def mode_trip(self):
@@ -339,9 +322,6 @@ if __name__ == '__main__':
             except ConnectionError:
                 print("Das wars E")
                 main.close()
-            # print('Plot 1 wird erstellt')
-            # main.web.plot_lte_signals(2)
-            # print('Plot 2 wird erstellt')
-            # main.web.plot_lte_signals(3)
+
             print("Das wars")
             main.close()

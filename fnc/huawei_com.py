@@ -89,37 +89,40 @@ class LTEStick:
     def get_plmn_list(self):
         return self.client.net.plmn_list()['Networks']['Network']
 
-    def set_net_mode(self, net_mode=4):
+    def set_net_mode(self, _net_mode=4):
         # net_mode
         # 0 = auto
         # 1 = 2G
         # 2 = 3G
         # 3 = 4G
         # 4 = best available mode
+        if self.net_mode == _net_mode:
+            return _net_mode
         mode_list = self.get_net_mode_list()
         available_modes = mode_list['AccessList']['Access']
-        if '02' in available_modes or '03' in available_modes or net_mode == 0:
+        if '02' in available_modes or '03' in available_modes or _net_mode == 0:
             lte_band = mode_list['LTEBandList']['LTEBand'][0]['Value']
             net_band = mode_list['LTEBandList']['LTEBand'][1]['Value']
-            if net_mode == 4:
-                net_mode = available_modes[-1:]
+            if _net_mode == 4:
+                _net_mode = available_modes[-1:]
 
-            net_mode = '0' + str(net_mode)
+            _net_mode = '0' + str(_net_mode)
             try:    # E 3372
-                self.client.net.set_net_mode(networkmode=net_mode, networkband=net_band, lteband=lte_band)
+                self.client.net.set_net_mode(networkmode=_net_mode, networkband=net_band, lteband=lte_band)
             except ResponseErrorException:
                 e_c = 0
                 while self.client.device.signal()['mode'] is None:
                     if e_c > 10:
                         print("Error.. None Net Mode after changing Net Mode .. No NET !!")
-                        return net_mode
+                        self.net_mode = int(_net_mode)
+                        return _net_mode
                     time.sleep(1)
                     e_c += 1
 
                 # print("New Net-Mode set: " + str(net_mode))
-                self.net_mode = int(net_mode)
+                self.net_mode = int(_net_mode)
                 time.sleep(3)
-                return net_mode
+                return _net_mode
             except Exception as e:
                 print("Error.. while trying to set Net Mode ..")
                 self.run_trigger = False

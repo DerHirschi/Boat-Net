@@ -1,5 +1,3 @@
-import time
-import threading
 from etc.var import overflow_value, list_avg, map_val, list_parts
 from etc.log import log
 from six.moves import cPickle as Pickle         # for performance
@@ -110,7 +108,6 @@ class ScanSignals:
         _res = []
         for _i in range(self.val_range + 1):
             _flag = _hdg_min + _i
-            # if _flag > 0:
             _flag = overflow_value(_flag, self.N)
             _res.append(_flag)
         return _res                     # Returns a list of hdg
@@ -204,7 +201,7 @@ class ScanSignals:
                         raise e
 
         self.run_trigger = False
-
+    '''
     def scan_cycle(self, _duration=2, _timer=-1, _resolution=32, _lte_duration=7, _net_mode=0):
         # may not be needed anymore
         # net_mode 0: scant 3G u 4G
@@ -275,13 +272,13 @@ class ScanSignals:
                     except Exception as e:
                         raise e
         self.run_trigger = False
-
+    
     def run_scan_cycle_thread(self, duration=2, timer=-1, resolution=32, lte_duration=7):
         if self.arduino.run_trigger:
             return threading.Thread(target=self.scan_cycle, args=(duration, timer, resolution, lte_duration)).start()
         else:
             return False
-
+    '''
     def get_best_cell_hdg(self, _mode=1):
         # _exclude_keys = (3g/4g) to exclude cells
         # _mode 1 = best Cell 3G/4G
@@ -403,7 +400,6 @@ class ScanSignals:
         else:
             self.set_cell_dict({}, _net_mode)  # or {} if no keys in scanres because all sig vals under threshold
             # I start to love Pythons dictionaries
-        self.save_dict(_net_mode)                    # Save data 2 File
 
     def check_if_in_vis_hdg(self, _val=None):
         if not _val:

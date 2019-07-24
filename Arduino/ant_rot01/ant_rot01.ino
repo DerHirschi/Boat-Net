@@ -71,11 +71,10 @@ int packet_flag 	= -1;
 bool run_servo_adj 	= false;
 bool init_ok 		= false;
 // temp values
+int temp_servo_val, temp_slow_val, flag_1;
 float H_buffer 		= 0;
-// Servo slow moving
 int serv_slowmv_val_buffer;
 long serv_slowmv_timer_buffer = micros();
-//int SERVO1_buffer 	= 0;
 
 // ----- DEBUG
 //int temp_val = 0;
@@ -86,9 +85,7 @@ long serv_slowmv_timer_buffer = micros();
 float serv_max_angle = 216;
 float serv_min_angle;
 float serv_N_angle;	// gemappter max angle
-//int serv_N_halfe_angle;	// gemappter max angle
 float serv_N_ms;	// gemappter max microseconds
-//int serv_N_halfe_ms;	// gemappter max microseconds
 bool lock_trigger = false;
 
 
@@ -770,7 +767,7 @@ void loop_contol() {
 	In order to reduce the refresh time only one
 	digit is updated each time around the main loop.
  */
-int temp_servo_val, temp_slow_val, flag_1;
+
 if(init_ok) LOOP_counter++;
 // Adjust Servos each iritation
 if(run_servo_adj) adjust_servos();
