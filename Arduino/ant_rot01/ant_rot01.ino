@@ -70,7 +70,8 @@ int new_servoval 	= 0;
 int packet_flag 	= -1;
 bool run_servo_adj, init_ok, lock_trigger = false;
 // temp values
-int temp_servo_val, temp_slow_val, flag_1, serv_slowmv_val_buffer;
+int temp_servo_val, temp_slow_val, serv_slowmv_val_buffer;
+int heading_buffer, flag_1;
 float H_buffer 		= 0;
 long serv_slowmv_timer_buffer = micros();
 // ----- Adjust Servo Angle
@@ -78,8 +79,7 @@ long serv_slowmv_timer_buffer = micros();
 float serv_max_angle = 216;
 // ----- globals
 float serv_min_angle, serv_N_angle, serv_N_ms;
-int LOOP_counter = 5;	// Start with INIT
-int heading_buffer;
+int LOOP_counter = 4;	// Start with INIT
 //Serial Read Buffer
 String inString, outString  = "";    // string to hold input, String to hold output
 // ----- Gyro
@@ -120,7 +120,7 @@ float   Accel_pitch,  Accel_roll;
   Obtain your magnetic declination from http://www.magnetic-declination.com/
   Uncomment the declination code within the main loop() if you want True North.
 */
-float   Declination = +3.36667;                                             //  Degrees ... replace this declination with yours
+// float   Declination = +3.36667;                                             //  Degrees ... replace this declination with yours
 float     Heading;
 
 int     Mag_x,                Mag_y,                Mag_z;                  // Raw magnetometer readings
@@ -747,7 +747,7 @@ void loop_contol() {
 	digit is updated each time around the main loop.
  */
 
-if(init_ok) LOOP_counter++;
+LOOP_counter++;
 // Adjust Servos each iritation
 if(run_servo_adj) adjust_servos();
 
@@ -767,11 +767,10 @@ switch (LOOP_counter) {
 	////////////////////// send Serial /////////////////////////
 	case 2:
 		send_Serial();
-		if(!init_ok) LOOP_counter++;
     break;
 
 	/////////////////////// get Serial ///////////////////////////
-	// "new_servoval, new_servospeed, servo(obj)"
+	// new_servoval, new_servospeed, servo()
 	case 3: // ----- write Serial if available and Buffer free to Buffer
 		if(Serial.available() > 0) {
 			int stri = Serial.read();
@@ -853,7 +852,7 @@ switch (LOOP_counter) {
 				break;
 			}			
 		}	
-	if(!init_ok) LOOP_counter--;
+	if(!init_ok) LOOP_counter = 1;
 	break;
 		
 	////////////////////// Servo slow move /////////////////////////
@@ -881,8 +880,8 @@ switch (LOOP_counter) {
 
 	////////////////////// Init /////////////////////////
 	case 5:
-		addTo_outString("INITMIN" + (String)(round(serv_min_angle)) + "INITMAX"+ (String)(round(serv_max_angle)) + "HDG" + (String)Heading);
-		LOOP_counter = 2;
+		addTo_outString("INITMIN" + (String)round(serv_min_angle) + "INITMAX"+ (String)round(serv_max_angle) + "HDG" + (String)Heading);
+		LOOP_counter = 1;
 		break;
 	}
 }
