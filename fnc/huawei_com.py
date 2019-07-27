@@ -1,4 +1,5 @@
 import time
+from etc.log import log
 from huawei_lte_api.Client import Client
 from huawei_lte_api.AuthorizedConnection import AuthorizedConnection
 from huawei_lte_api.exceptions import ResponseErrorException
@@ -65,7 +66,7 @@ class LTEStick:
         try:        # for E 3372
             self.client.device.reboot()
         except ResponseErrorException:
-            print('Rebooting LTE-Modem ...')
+            log('Rebooting LTE-Modem ...', 9)
             time.sleep(30)
             self.run_trigger = True
             return True
@@ -113,7 +114,7 @@ class LTEStick:
                 e_c = 0
                 while self.client.device.signal()['mode'] is None:
                     if e_c > 10:
-                        print("Error.. None Net Mode after changing Net Mode .. No NET !!")
+                        log("Error.. None Net Mode after changing Net Mode .. No NET !!", 9)
                         self.net_mode = int(_net_mode)
                         return _net_mode
                     time.sleep(1)
@@ -124,7 +125,7 @@ class LTEStick:
                 time.sleep(3)
                 return _net_mode
             except Exception as e:
-                print("Error.. while trying to set Net Mode ..")
+                log("Error.. while trying to set Net Mode ..", 1)
                 self.run_trigger = False
                 raise e
             return False

@@ -14,17 +14,16 @@ class Main:
         self.ardu = None
         self.lte = None
         self.scan = None
-        # self.web = None
 
         self.th_run = False         # Trigger to brake threaded loops
         self.thread = None          # Thread var to join the thread
         # TODO better loop timing system
         # Config TODO gather config vars in config.py
-        self.scan_time_passiv = 5       # Scan without move antenna. Just get signals # Check if active cell is visible
+        self.scan_time_passive = 5      # Scan without move antenna. Just get signals # Check if active cell is visible
         self.new_servo_set_time = 10    # Check if none scanned range is visible
-        self.web2data_timer = 600       # minimum wait if new plot can called
+        self.web2data_timer = 500       # minimum wait if new plot can called
         self.scan_resolution = 32       # Resolution of scans
-        self.scan_durration = 5         # Duration of scanned signals from LTE stick
+        self.scan_duration = 5          # Duration of scanned signals from LTE stick
         self.init_speed = 100           # Servo Speed for initialization scan
         self.cell_speed = 150           # Servo Speed for cell scan
         # Flags
@@ -50,12 +49,11 @@ class Main:
             except Exception as e:
                 self.close("LTE failed - " + str(e))
                 self.run_trigger = False
-            # Scan & Web
+            # Scan
             if self.run_trigger:
                 print("Scan class init")
                 self.scan = self.init_scan()
                 self.scan.get_plmn_list()
-                # self.web = Data2Web(self.scan)
                 threading.Thread(target=self.reinit_check).start()
 
     def reinit_check(self):   # Reinitialisat if Arduino thread stops
@@ -118,11 +116,11 @@ class Main:
             self.ardu.run_trigger = False
 
     def data2web(self):
+        self.c5 = time.time()
+        self.call_web2data = False
         for _i in [2, 3]:
             self.scan.save_dict(_i)                    # Save data 2 File
         os.system('python3 data2web.py &')
-        self.c5 = time.time()
-        self.call_web2data = False
 
     def go_strongest_cell(self, _net_mode=1, _speed=2):
         # _net_mode 1 = Auto
@@ -175,7 +173,7 @@ class Main:
                                                  self.lte.net_mode,
                                                  self.cell_speed,
                                                  self.scan_resolution,
-                                                 self.scan_durration)
+                                                 self.scan_duration)
                         if not _n:
                             try:
                                 self.lte.switch_net_mode()
@@ -199,7 +197,7 @@ class Main:
                                      self.lte.net_mode,
                                      self.cell_speed,
                                      self.scan_resolution,
-                                     self.scan_durration)
+                                     self.scan_duration)
             self.go_strongest_cell(_speed=self.cell_speed)
             self.call_web2data = True
         except ConnectionError:
@@ -209,7 +207,7 @@ class Main:
         log("pasv_scan ", 9)
         self.scan.get_lte_signals_avg(self.ardu.servo_val,
                                       self.scan_resolution,
-                                      self.scan_durration)
+                                      self.scan_duration)
         self.scan.get_cells(self.lte.net_mode)
         self.chk_sig_in_threshold()
 
@@ -232,7 +230,7 @@ class Main:
             while self.run_trigger and self.th_run and not self.cell_hdg_list:
                 try:
                     self.scan.scan_one_cycle(_resolution=self.scan_resolution,
-                                             _lte_duration=self.scan_durration,
+                                             _lte_duration=self.scan_duration,
                                              _speed=self.init_speed)
                     # go slowly to strongest visible cell
                     self.go_strongest_cell(_speed=self.init_speed)
@@ -273,7 +271,7 @@ class Main:
         _c3 = _c1                # new_servo_set_time
         while self.run_trigger and self.th_run:
             # Passive scan  # Check if active cell is visible
-            if self.chk_loop_time(_c1, self.scan_time_passiv):
+            if self.chk_loop_time(_c1, self.scan_time_passive):
                 self.pasv_scan()                 # OK
                 self.chk_act_cell_vis()
                 _c1 = time.time()

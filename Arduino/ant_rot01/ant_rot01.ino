@@ -68,32 +68,20 @@ int servoList[2][2] = {{0, 950}, {0, 950}}; // {{val, new_servospeed},{servo2,..
 int new_servospeed 	= 0;
 int new_servoval 	= 0;
 int packet_flag 	= -1;
-bool run_servo_adj 	= false;
-bool init_ok 		= false;
+bool run_servo_adj, init_ok, lock_trigger = false;
 // temp values
-int temp_servo_val, temp_slow_val, flag_1;
+int temp_servo_val, temp_slow_val, flag_1, serv_slowmv_val_buffer;
 float H_buffer 		= 0;
-int serv_slowmv_val_buffer;
 long serv_slowmv_timer_buffer = micros();
-
-// ----- DEBUG
-//int temp_val = 0;
-#define DEBUG true
+// ----- Adjust Servo Angle
 #define ADJUST false
-
-// ----- globals
 float serv_max_angle = 216;
-float serv_min_angle;
-float serv_N_angle;	// gemappter max angle
-float serv_N_ms;	// gemappter max microseconds
-bool lock_trigger = false;
-
-
+// ----- globals
+float serv_min_angle, serv_N_angle, serv_N_ms;
 int LOOP_counter = 5;	// Start with INIT
-int heading_buffer, LCD_pitch_buffer, LCD_roll_buffer;
+int heading_buffer;
 //Serial Read Buffer
-String inString  = "";    // string to hold input
-String outString = "";	  // string to hold output
+String inString, outString  = "";    // string to hold input, String to hold output
 // ----- Gyro
 #define MPU9250_I2C_address 0x68                                        // I2C address for MPU9250 
 #define MPU9250_I2C_master_enable 0x6A                                  // USER_CTRL[5] = I2C_MST_EN
@@ -173,6 +161,7 @@ void setup()
 {
   // ----- Serial communication
   Serial.begin(115200);                                 //Use only for debugging
+  // ----- Start-up message
   Serial.println("");
   Serial.println("BSTRT");								//Restart Trigger for Python						
   Wire.begin();                                         //Start I2C as master
@@ -184,30 +173,20 @@ void setup()
 
   serv_min_angle 	 = 180 - serv_max_angle / 2;
   serv_max_angle 	 = serv_min_angle + serv_max_angle;
-  //serv_N_halfe_angle = round(serv_N_angle / 2);
-  //serv_N_halfe_ms 	 = round(serv_N_ms / 2);
-  // ----- Provision to disable tilt stabilization
-  /*
-     Connect a jumper wire between A0 and GRN to disable the "tilt stabilazation"
-  */
-  //pinMode(Switch, INPUT_PULLUP);                        // Short A0 to GND to disable tilt stabilization
   
   // ----- Status LED
   pinMode(LED, OUTPUT);                                 // Set LED (pin 13) as output
   digitalWrite(LED, HIGH);                               // Turn LED off
 
-  // ----- Start-up message
-  //Serial.println("Mag init");
+  
   // ----- Configure the magnetometer
   configure_magnetometer();
-
   // ----- Calibrate the magnetometer
   /*
      Calibrate only needs to be done occasionally.
      Enter the magnetometer values into the "header"
      then set "Record_data = false".
   */
-  //Serial.println("Mag cal");
   if (Record_data == true)
   {
     calibrate_magnetometer();
@@ -218,7 +197,7 @@ void setup()
   calibrate_gyro();
 
   Debug_start_time = micros();                          // Controls data display rate to Serial Monitor
-  Loop_start_time = micros();                           // Controls the Gyro refresh rate
+  Loop_start_time  = micros();                          // Controls the Gyro refresh rate
   digitalWrite(LED, LOW);
 }
 
@@ -811,8 +790,7 @@ switch (LOOP_counter) {
 					if(stri == '\n') {
 						if(inString.toInt() == 1) {
 							init_ok = true;	
-							//if(DEBUG) Serial.println("Handshake complete ..");
-						
+
 							send_ack();
 							H_buffer = Heading;
 							addTo_outString("LH" + (String)H_buffer);	//gimbal lock heading
@@ -832,9 +810,7 @@ switch (LOOP_counter) {
 				break;
 				case 66:	// "B"	Set H_buffer if not set in case 83
 					if(stri == '\n') {
-						H_buffer = Heading;							
-						// if(DEBUG) Serial.println("Set H_buffer: " + (String)H_buffer);						
-						// Serial.println("Set Lock");
+						H_buffer = Heading;						
 						send_ack();
 						addTo_outString("LH" + (String)H_buffer);	//gimbal lock heading
 					}
@@ -872,9 +848,6 @@ switch (LOOP_counter) {
 				default:
 					if(stri == '\n') {	// ACK -1 .. fail
 						packet_flag = -1;						
-						if(DEBUG){
-							Serial.println(inString);
-						}
 						send_ack();
 					}
 				break;
@@ -908,11 +881,7 @@ switch (LOOP_counter) {
 
 	////////////////////// Init /////////////////////////
 	case 5:
-		int foo = round(serv_max_angle);
-		int bar = round(serv_min_angle);
-		addTo_outString("INITMIN" + (String)bar + "INITMAX"+ (String)foo + "HDG" + (String)Heading);
-		// Serial.println("NANGLE" + (String)serv_N_angle);
-		// Serial.println("NMS" + (String)serv_N_ms);
+		addTo_outString("INITMIN" + (String)(round(serv_min_angle)) + "INITMAX"+ (String)(round(serv_max_angle)) + "HDG" + (String)Heading);
 		LOOP_counter = 2;
 		break;
 	}
