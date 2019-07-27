@@ -2,6 +2,7 @@ import serial
 import threading
 import time
 from config import serial_ports, serial_baud
+from six.moves import cPickle as Pickle         # for performance
 
 
 class ArduCom:
@@ -30,11 +31,24 @@ class ArduCom:
         # Flags
         self.servo_on = False       # Servo toggle ( on/off Servo Gimbal on Ardu)
         self.servo_val = 512        # Temp Servo value
+        # Configs
+        self.conf_file = 'fnc/configs.pkl'
+        self.acc_roll_cal = .0  # Calibrating parameter for accelerometer roll
+        self.acc_pitch_cal = .0  # Calibrating parameter for accelerometer pitch
         # Handshake
         if self.get_handshake():
             print("Handshake successful..")
             # Receiver Thread
             threading.Thread(target=self.read_serial).start()
+            try:
+                with open(self.conf_file, 'rb') as f:
+                    _di = Pickle.load(f)
+                    if _di:
+                        self.acc_roll_cal = _di['acc_roll']
+                        self.acc_pitch_cal = _di['acc_pitch']
+                self.set_acc_cal_parm()
+            except FileNotFoundError:
+                self.get_acc_cal_parm()
         else:
             print("Handshake failed !")
             self.run_trigger = False
@@ -42,6 +56,14 @@ class ArduCom:
 
     def close(self):
         self.ser.close()
+
+    def save_configs(self):
+        _di = {
+            'acc_roll': self.acc_roll_cal,
+            'acc_pitch': self.acc_pitch_cal
+        }
+        with open(self.conf_file, 'wb') as _f:
+            Pickle.dump(_di, _f)
 
     def get_handshake(self):
         flag = 'I'          # 'I' = 73
@@ -112,8 +134,13 @@ class ArduCom:
             if _temp.replace(".", "", 1).isdigit():
                 self.heading = float(_temp)
         # Gimbal lock Heading
-        elif 'LH' in buffer_in:     # TODO data behind flag. bool 1 or so
+        elif 'LH' in buffer_in:
             self.lock_hdg = float(buffer_in[2:])
+        # Accelerometer calibrating parameters
+        elif 'CA' in buffer_in:
+            self.acc_pitch_cal = float(buffer_in[2:(buffer_in.find("P"))])
+            self.acc_roll_cal = float(buffer_in[(buffer_in.find("P") + 1):(buffer_in.find("R"))])
+            self.save_configs()
         # ACK if Servo is on Position
         elif 'SAC' in buffer_in:
             self.sac = True
@@ -190,4 +217,13 @@ class ArduCom:
         flag = 'B'  # 'B' = 66
         self.send_w_ack(flag, "")
 
+    # Ardu set automatic accelerometer level parameters end send it back
+    def get_acc_cal_parm(self):
+        flag = 'C'  # 'C' = 67
+        self.send_w_ack(flag, 'A')  # 'A' accelerometer
+
+    def set_acc_cal_parm(self):
+        flag = 'C'  # 'C' = 67
+        _str = 'A' + str(self.acc_pitch_cal) + 'P' + str(self.acc_roll_cal) + 'R'
+        self.send_w_ack(flag, _str)
 

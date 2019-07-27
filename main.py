@@ -110,9 +110,9 @@ class Main:
             print(str(_e_in))
         self.run_trigger = False
         self.th_run = False
-        if self.scan.run_trigger:
+        if self.scan:
             self.scan.run_trigger = False
-        if self.ardu.run_trigger:
+        if self.ardu:
             self.ardu.run_trigger = False
 
     def data2web(self):
@@ -311,6 +311,11 @@ if __name__ == '__main__':
     # first attempt
     main = Main(modem1)
     if main.run_trigger:
+        # TODO .. Make Button in Web-Gui .. maybe use Flask for Web-Gui .. .
+        _inp = input("Do you want calibrate the accelerometer leveling parameters ? y/n> ")
+        if 'Y' in _inp or 'y' in _inp:
+            main.ardu.get_acc_cal_parm()
+
         try:
             main.mode_anchor()
         except KeyboardInterrupt:
