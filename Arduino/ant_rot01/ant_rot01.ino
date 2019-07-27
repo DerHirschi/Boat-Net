@@ -64,11 +64,11 @@ Servo servo1;
 #define SERV_MAP 1023
 
 // Serial Buffer values
-int servoList[2][2] = {{0, 950}, {0, 950}}; // {{val, new_servospeed},{servo2,..}}
-int new_servospeed 	= 0;
-int new_servoval 	= 0;
+int servoList[2][2] = {{0, 950}, {0, 950}}; // {{val, in_val_1},{servo2,..}}
+int in_val_1 	= 0;
+int in_val_0 	= 0;
 int packet_flag 	= -1;
-bool run_servo_adj, init_ok, lock_trigger = false;
+bool run_servo_adj, init_ok, lock_trigger, align_acc = false;
 // temp values
 int temp_servo_val, temp_slow_val, serv_slowmv_val_buffer;
 int heading_buffer, flag_1;
@@ -79,7 +79,7 @@ long serv_slowmv_timer_buffer = micros();
 float serv_max_angle = 216;
 // ----- globals
 float serv_min_angle, serv_N_angle, serv_N_ms;
-int LOOP_counter = 4;	// Start with INIT
+int LOOP_counter = 5;	// Start with INIT
 //Serial Read Buffer
 String inString, outString  = "";    // string to hold input, String to hold output
 // ----- Gyro
@@ -104,6 +104,7 @@ float   Gyro_pitch_output, Gyro_roll_output;
 // ----- Accelerometer
 long    Accel_x,      Accel_y,      Accel_z,    Accel_total_vector;
 float   Accel_pitch,  Accel_roll;
+float   Cal_Accel_pitch, Cal_Accel_roll = -.0f;
 
 // ----- Magnetometer
 #define AK8963_I2C_address 0x0C                                             // I2C address for AK8963
@@ -270,8 +271,10 @@ void main_loop() {
 		 Place the accelerometer on a level surface
 		 Adjust the following two values until the pitch and roll readings are zero
 	  */
-	  Accel_pitch -= -0.2f;                                             //Accelerometer calibration value for pitch
-	  Accel_roll -= 1.1f;                                               //Accelerometer calibration value for roll
+	  //Accel_pitch -= -0.2f;                                             //Accelerometer calibration value for pitch
+	  Accel_pitch -= Cal_Accel_pitch;                                             //Accelerometer calibration value for pitch
+	  //Accel_roll -= 1.1f;                                               //Accelerometer calibration value for roll
+	  Accel_roll -= Cal_Accel_roll;                                              //Accelerometer calibration value for roll
 
 	  // ----- Correct for any gyro drift
 	  if (Gyro_synchronised)
@@ -671,16 +674,12 @@ float heading_overflow(float h_in) {
 }
 */
 float heading_overflow(float h_in) {	
-	
 	if (h_in >= 360) { 
-		h_in -= 360;    
-		
+		h_in -= 360;    	
 	}
 	if (h_in < 0) {		
-		h_in +=  360;
-		
+		h_in +=  360;	
 	}		
-	
   return h_in;
 }
 
@@ -737,6 +736,14 @@ void serv_in_pos_ack(){
 	servoList[0][1] = 1;
 }
 // --------------------------
+//  Alinge accelerometer pitch & roll
+// --------------------------
+void align_accel(){
+	Cal_Accel_pitch = Accel_pitch;
+	Cal_Accel_roll  = Accel_roll;
+}
+
+// --------------------------
 //  Main Loop - Get Serial - Adj Servo ...
 // --------------------------
 void loop_contol() {
@@ -760,6 +767,7 @@ switch (LOOP_counter) {
 		if(flag_1 != heading_buffer) {
 			heading_buffer 	= flag_1; 	
 			addTo_outString("HDG" + (String)Heading);
+			//addTo_outString("P " + (String)Accel_pitch + " R " + (String)Accel_roll);
 			if(ADJUST) addTo_outString("ADJ: " + (String)serv_max_angle);
 		}		
 		break;
@@ -770,18 +778,15 @@ switch (LOOP_counter) {
     break;
 
 	/////////////////////// get Serial ///////////////////////////
-	// new_servoval, new_servospeed, servo()
+	// in_val_0, in_val_1, servo()
 	case 3: // ----- write Serial if available and Buffer free to Buffer
 		if(Serial.available() > 0) {
 			int stri = Serial.read();
-			
 			if(packet_flag == -1) {			
 				packet_flag = ((String)stri).toInt();
 			}else{
-				if (isDigit(stri)) {
-					// convert the incoming byte to a char and add it to the string:
-					inString += (char)stri;			
-				}
+				// convert the incoming byte to a char and add it to the string:
+				inString += (char)stri;			
 			}
 			switch(packet_flag) {
 				
@@ -789,13 +794,12 @@ switch (LOOP_counter) {
 					if(stri == '\n') {
 						if(inString.toInt() == 1) {
 							init_ok = true;	
-
 							send_ack();
 							H_buffer = Heading;
 							addTo_outString("LH" + (String)H_buffer);	//gimbal lock heading
 						}
 					}
-				break;				
+					break;				
 				case 65: 	// "A"	Servo Adjust on/off
 					if(stri == '\n') {
 						if(inString.toInt() == 1) {
@@ -803,53 +807,79 @@ switch (LOOP_counter) {
 						}else{
 							run_servo_adj = false;
 						}
-						send_ack();
-					
+						send_ack();	
 					}
-				break;
+					break;
 				case 66:	// "B"	Set H_buffer if not set in case 83
 					if(stri == '\n') {
 						H_buffer = Heading;						
 						send_ack();
 						addTo_outString("LH" + (String)H_buffer);	//gimbal lock heading
 					}
-				break;
+					break;
+				case 67: 	// "C" Level accelerometer & calibrate magnetometer
+					// CA for Auto
+					// CA2.55P1.45R
+					if(stri == 'A') {	// accelerometer
+						in_val_0 = 0;
+						inString = "";
+					}
+					if(in_val_0 == 0 && stri == 'P') {
+						Cal_Accel_pitch = inString.toFloat();
+						inString 		= "";
+					}
+					if(in_val_0 == 0 && stri == 'R') {
+						Cal_Accel_roll  = inString.toFloat();
+						inString 		= "";
+						in_val_0		= -1;
+					}
+					if(stri == 'M') {	// magnetometer
+						in_val_0 = 1;
+						inString = "";
+					}
+					
+					if(stri == '\n') {
+						send_ack();
+						if(in_val_0 == 0) { // accelerometer
+							align_acc = true;
+						}
+					}
+					break;
 				case 83:	// "S"  Servo Parameter	
 					if (stri == 'L') { // Set Gimbal Lock
 						lock_trigger = true;
 						inString = "";
 					}				
 					if (stri == ',') { // value
-						//new_servoval = map((inString.toInt() - 2000), -serv_N_halfe_angle, serv_N_halfe_angle, -serv_N_halfe_ms, serv_N_halfe_ms);				
-						new_servoval = map((inString.toInt() - 2000), -serv_N_angle, serv_N_angle, -serv_N_ms, serv_N_ms);				
+						in_val_0 = map((inString.toInt() - 2000), -serv_N_angle, serv_N_angle, -serv_N_ms, serv_N_ms);				
 						inString = "";
 					}
 					if (stri == ':') { // speed
-						new_servospeed = inString.toInt();			
+						in_val_1 = inString.toInt();			
 						inString = "";
 					}					
 					if (stri == '\n') {	// servo number
 						int serv = (inString.toInt() - 1);						
-						servoList[serv][1] = new_servospeed;
-						servoList[serv][0] = new_servoval;
+						servoList[serv][1] = in_val_1;
+						servoList[serv][0] = in_val_0;
 						if(lock_trigger) {
 							H_buffer = Heading;	
 							addTo_outString("LH" + (String)H_buffer);
 							lock_trigger = false;
 						}
-						if(new_servospeed == 1) {
-							serv_slowmv_val_buffer = new_servoval;
+						if(in_val_1 == 1) {
+							serv_slowmv_val_buffer = in_val_0;
 							LOOP_counter = 0;
 						}
 						send_ack();									
 					}
-				break;
+					break;
 				default:
 					if(stri == '\n') {	// ACK -1 .. fail
 						packet_flag = -1;						
 						send_ack();
 					}
-				break;
+					break;
 			}			
 		}	
 	if(!init_ok) LOOP_counter = 1;
@@ -875,11 +905,19 @@ switch (LOOP_counter) {
 				serv_in_pos_ack();
 			}			
 		}
-	LOOP_counter = 0;
+	if(!align_acc) LOOP_counter = 0;
 	break;
-
-	////////////////////// Init /////////////////////////
 	case 5:
+		if(round(Accel_pitch) != 0 || round(Accel_roll) != 0 )	{
+			align_accel();
+		}else{
+			align_acc = false;
+			addTo_outString("CA" + (String)Cal_Accel_pitch + "P" + (String)Cal_Accel_roll + "R" ) ;
+		}
+		LOOP_counter = 0;
+		break;
+	////////////////////// Init /////////////////////////
+	case 6:
 		addTo_outString("INITMIN" + (String)round(serv_min_angle) + "INITMAX"+ (String)round(serv_max_angle) + "HDG" + (String)Heading);
 		LOOP_counter = 1;
 		break;
