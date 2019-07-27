@@ -766,7 +766,7 @@ switch (LOOP_counter) {
 		flag_1 = round(Heading);
 		if(flag_1 != heading_buffer) {
 			heading_buffer 	= flag_1; 	
-			addTo_outString("HDG" + (String)Heading);
+			addTo_outString("$" + (String)Heading);
 			//addTo_outString("P " + (String)Accel_pitch + " R " + (String)Accel_roll);
 			if(ADJUST) addTo_outString("ADJ: " + (String)serv_max_angle);
 		}		

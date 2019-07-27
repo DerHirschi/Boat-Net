@@ -33,8 +33,8 @@ class ArduCom:
         self.servo_val = 512        # Temp Servo value
         # Configs
         self.conf_file = 'fnc/configs.pkl'
-        self.acc_roll_cal = .0  # Calibrating parameter for accelerometer roll
-        self.acc_pitch_cal = .0  # Calibrating parameter for accelerometer pitch
+        self.acc_roll_cal = .0      # Calibrating parameter for accelerometer roll
+        self.acc_pitch_cal = .0     # Calibrating parameter for accelerometer pitch
         # Handshake
         if self.get_handshake():
             print("Handshake successful..")
@@ -128,8 +128,8 @@ class ArduCom:
             self.ack = chr(int(buffer_in[3:]))
             # print('ACK-Recv :' + str(self.ack))
         # Heading
-        elif 'HDG' in buffer_in:    # TODO make other smaller unique flag(maybe one byte). got lot of data form Ardu
-            _temp = buffer_in[3:]
+        elif '$' in buffer_in:
+            _temp = buffer_in[1:]
             # print("HDG: " + str(_temp))
             if _temp.replace(".", "", 1).isdigit():
                 self.heading = float(_temp)
