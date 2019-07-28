@@ -86,6 +86,10 @@ class ArduCom:
             print("Send ACC leveling parameters..")
             self.set_acc_cal_parm()
             print("ACC leveling parameters sended")
+            print("Send Mag calibrating parameters..")
+            # TODO maybe optional
+            self.set_mag_parm()
+            print("Mag calibrating parameters sended")
         except FileNotFoundError or KeyError as e:
             self.get_acc_cal_parm()
             self.get_mag_parm()
@@ -272,39 +276,54 @@ class ArduCom:
                     return False
         return True
 
-    def toggle_servos(self, switch=None):  # Servo toggle ( on/off Servo Gimbal on Ardu)
-        flag = 'A'      # 'A' = 65
-        if switch is None:
+    def toggle_servos(self, _switch=None):  # Servo toggle ( on/off Servo Gimbal on Ardu)
+        _flag = 'A'      # 'A' = 65
+        if _switch is None:
             self.servo_on = bool((int(self.servo_on) + 1) % 2)
         else:
-            self.servo_on = switch
-        self.send_w_ack(flag, str(int(self.servo_on)))
+            self.servo_on = _switch
+        self.send_w_ack(_flag, str(int(self.servo_on)))
 
     def set_gimbal_lock_hdg(self):
-        flag = 'B'  # 'B' = 66
-        self.send_w_ack(flag, "")
+        _flag = 'B'  # 'B' = 66
+        self.send_w_ack(_flag, "")
 
     # Ardu set automatic accelerometer level parameters end send it back
     def get_acc_cal_parm(self):
-        flag = 'C'  # 'C' = 67
-        self.send_w_ack(flag, 'A')      # 'A' accelerometer
+        _flag = 'C'  # 'C' = 67
+        self.send_w_ack(_flag, 'A')      # 'A' accelerometer
 
     def set_acc_cal_parm(self):
-        flag = 'C'  # 'C' = 67
+        _flag = 'C'  # 'C' = 67
         _str = 'A' + str(self.acc_pitch_cal) + 'P' + str(self.acc_roll_cal) + 'R'
-        self.send_w_ack(flag, _str)
+        self.send_w_ack(_flag, _str)
 
     def get_mag_parm(self):
-        flag = 'C'  # 'C' = 67
-        self.send_w_ack(flag, 'P')      # 'P' magnetometer parameter
+        _flag = 'C'  # 'C' = 67
+        self.send_w_ack(_flag, 'P')      # 'P' magnetometer parameter
         self.p_in = False
 
+    def set_mag_parm(self):
+        # CM40a-236b147c1.01d0.98e1.01f1.18g1.18h1.14i
+        _flag = 'C'  # 'C' = 67
+        _str = 'M{}a{}b{}c{}d{}e{}f{}g{}h{}i'.format(self.Mag_x_offset,
+                                                     self.Mag_y_offset,
+                                                     self.Mag_z_offset,
+                                                     self.Mag_x_scale,
+                                                     self.Mag_y_scale,
+                                                     self.Mag_z_scale,
+                                                     self.ASAX,
+                                                     self.ASAY,
+                                                     self.ASAZ)
+        self.send_w_ack(_flag, _str)
+
     def calibrate_mag(self):
-        flag = 'C'  # 'C' = 67
-        self.send_w_ack(flag, 'M')      # 'M' magnetometer
+        _flag = 'C'  # 'C' = 67
+        self.send_w_ack(_flag, 'M')      # 'M' magnetometer
         self.print_mag_parm()
 
     def print_mag_parm(self):
+        # TODO Implement log system
         self.get_mag_parm()
         while not self.p_in:
             time.sleep(0.001)
