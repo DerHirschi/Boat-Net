@@ -66,12 +66,13 @@ Servo servo1;
 // Serial Buffer values
 int servoList[2][2] = {{0, 950}, {0, 950}}; // {{val, in_val_1},{servo2,..}}
 int in_val_1 	= 0;
-int in_val_0 	= 0;
+int in_val_0 	= -99;
 int packet_flag 	= -1;
 bool run_servo_adj, init_ok, lock_trigger, align_acc = false;
 // temp values
-int temp_servo_val, temp_slow_val, serv_slowmv_val_buffer;
+int serv_slowmv_val_buffer;
 int heading_buffer, flag_1;
+//int dir_flag 		= -1;
 float H_buffer 		= 0;
 long serv_slowmv_timer_buffer = micros();
 // ----- Adjust Servo Angle
@@ -138,8 +139,8 @@ float   Mag_pitch, Mag_roll;
    (4) Set "Record_data = false;" then upload & rerun program.
 */
 bool    Record_data = false ;
-int     Mag_x_offset = -107,      Mag_y_offset = 216,     Mag_z_offset = -157;   // Hard-iron offsets
-float   Mag_x_scale = 0.96,     Mag_y_scale = 1.08,     Mag_z_scale = 0.96;    // Soft-iron scale factors
+int     Mag_x_offset = -71,      Mag_y_offset = 203,     Mag_z_offset = 134;   // Hard-iron offsets
+float   Mag_x_scale = 0.8,     Mag_y_scale = 0.7,     Mag_z_scale = 3.19;    // Soft-iron scale factors
 float   ASAX = 1.18,            ASAY = 1.18,            ASAZ = 1.14;           // (A)sahi (S)ensitivity (A)djustment fuse ROM values.
 
 // ----- LED
@@ -170,7 +171,7 @@ void setup()
   
   servo1.attach(3);
   serv_N_angle 	 	 = float(SERV_MAP / serv_max_angle * 360);
-  serv_N_ms		 	   = float((SERV_MAX - SERV_MIN) / serv_max_angle * 360);
+  serv_N_ms		 	 = float((SERV_MAX - SERV_MIN) / serv_max_angle * 360);
 
   serv_min_angle 	 = 180 - serv_max_angle / 2;
   serv_max_angle 	 = serv_min_angle + serv_max_angle;
@@ -425,124 +426,150 @@ void configure_magnetometer()
 // -------------------------------
 //  Calibrate magnetometer
 // -------------------------------
-void calibrate_magnetometer()
-{
-  // ----- Locals
-  int mag_x, mag_y, mag_z;
-  int status_reg_2;                                               // ST2 status register
+void calibrate_magnetometer(){
+	// send ACK
+	while(outString.length() != 0) send_Serial();
+	// ----- Locals
+	int mag_x, mag_y, mag_z;
+	int status_reg_2;                                               // ST2 status register
 
-  int mag_x_min =  32767;                                         // Raw data extremes
-  int mag_y_min =  32767;
-  int mag_z_min =  32767;
-  int mag_x_max = -32768;
-  int mag_y_max = -32768;
-  int mag_z_max = -32768;
+	int mag_x_min =  32767;                                         // Raw data extremes
+	int mag_y_min =  32767;
+	int mag_z_min =  32767;
+	int mag_x_max = -32768;
+	int mag_y_max = -32768;
+	int mag_z_max = -32768;
 
-  float chord_x,  chord_y,  chord_z;                              // Used for calculating scale factors
-  float chord_average;
+	float chord_x,  chord_y,  chord_z;                              // Used for calculating scale factors
+	float chord_average;
 
-  // ----- Display calibration message
-  pinMode(LED, OUTPUT);                                 //Set LED (pin 13) as output
-  digitalWrite(LED, HIGH);                              //Turn LED on ... indicates startup
+	// ----- Display calibration message
+	digitalWrite(LED, HIGH);                              //Turn LED on ... indicates startup
 
-  Serial.println("Rotate Compass");
+	Serial.println("Rotate Compass");
 
-  // ----- Record min/max XYZ compass readings
-  for (int counter = 0; counter < 16000 ; counter ++)             // Run this code 16000 times
-  {
-    Loop_start = micros();                                        // Start loop timer
-    if (counter % 1000 == 0) Serial.print(".");                        // Print a dot on the LCD every 1000 readings
+	// ----- Record min/max XYZ compass readings
+	// 128 sec. 32000 * 4 / 1000
+	for (int counter = 0; counter < 32000 ; counter ++) {             // Run this code 16000 times
 
-    // ----- Point to status register 1
-    Wire.beginTransmission(AK8963_I2C_address);                   // Open session with AK8963
-    Wire.write(AK8963_status_reg_1);                              // Point to ST1[0] status bit
-    Wire.endTransmission();
-    Wire.requestFrom(AK8963_I2C_address, 1);                      // Request 1 data byte
-    while (Wire.available() < 1);                                 // Wait for the data
-    if (Wire.read() & AK8963_data_ready_mask)                     // Check data ready bit
-    {
-      // ----- Read data from each axis (LSB,MSB)
-      Wire.requestFrom(AK8963_I2C_address, 7);                    // Request 7 data bytes
-      while (Wire.available() < 7);                               // Wait for the data
-      mag_x = (Wire.read() | Wire.read() << 8) * ASAX;            // Combine LSB,MSB X-axis, apply ASA corrections
-      mag_y = (Wire.read() | Wire.read() << 8) * ASAY;            // Combine LSB,MSB Y-axis, apply ASA corrections
-      mag_z = (Wire.read() | Wire.read() << 8) * ASAZ;            // Combine LSB,MSB Z-axis, apply ASA corrections
-      status_reg_2 = Wire.read();                                 // Read status and signal data read
+		Loop_start = micros();                                        // Start loop timer
+		if (counter % 1000 == 0) Serial.println(".");                 // Print a dot on the LCD every 1000 readings
 
-      // ----- Validate data
-      if (!(status_reg_2 & AK8963_overflow_mask))                 // Check HOFL flag in ST2[3]
-      {
-        // ----- Find max/min xyz values
-        mag_x_min = min(mag_x, mag_x_min);
-        mag_x_max = max(mag_x, mag_x_max);
-        mag_y_min = min(mag_y, mag_y_min);
-        mag_y_max = max(mag_y, mag_y_max);
-        mag_z_min = min(mag_z, mag_z_min);
-        mag_z_max = max(mag_z, mag_z_max);
-      }
-    }
-    delay(4);                                                     // Time interval between magnetometer readings
-  }
+		// ----- Point to status register 1
+		Wire.beginTransmission(AK8963_I2C_address);                   // Open session with AK8963
+		Wire.write(AK8963_status_reg_1);                              // Point to ST1[0] status bit
+		Wire.endTransmission();
+		Wire.requestFrom(AK8963_I2C_address, 1);                      // Request 1 data byte
+		while (Wire.available() < 1);                                 // Wait for the data
+		if (Wire.read() & AK8963_data_ready_mask) {                    // Check data ready bit
+    
+			// ----- Read data from each axis (LSB,MSB)
+			Wire.requestFrom(AK8963_I2C_address, 7);                    // Request 7 data bytes
+			while (Wire.available() < 7);                               // Wait for the data
+			mag_x = (Wire.read() | Wire.read() << 8) * ASAX;            // Combine LSB,MSB X-axis, apply ASA corrections
+			mag_y = (Wire.read() | Wire.read() << 8) * ASAY;            // Combine LSB,MSB Y-axis, apply ASA corrections
+			mag_z = (Wire.read() | Wire.read() << 8) * ASAZ;            // Combine LSB,MSB Z-axis, apply ASA corrections
+			status_reg_2 = Wire.read();                                 // Read status and signal data read
 
-  // ----- Calculate hard-iron offsets
-  Mag_x_offset = (mag_x_max + mag_x_min) / 2;                     // Get average magnetic bias in counts
-  Mag_y_offset = (mag_y_max + mag_y_min) / 2;
-  Mag_z_offset = (mag_z_max + mag_z_min) / 2;
+			// ----- Validate data
+			if (!(status_reg_2 & AK8963_overflow_mask)) {         // Check HOFL flag in ST2[3]
+				// ----- Find max/min xyz values
+				mag_x_min = min(mag_x, mag_x_min);
+				mag_x_max = max(mag_x, mag_x_max);
+				mag_y_min = min(mag_y, mag_y_min);
+				mag_y_max = max(mag_y, mag_y_max);
+				mag_z_min = min(mag_z, mag_z_min);
+				mag_z_max = max(mag_z, mag_z_max);
+			}
+		}
+		delay(4);                                                     // Time interval between magnetometer readings
+	}
 
-  // ----- Calculate soft-iron scale factors
-  chord_x = ((float)(mag_x_max - mag_x_min)) / 2;                 // Get average max chord length in counts
-  chord_y = ((float)(mag_y_max - mag_y_min)) / 2;
-  chord_z = ((float)(mag_z_max - mag_z_min)) / 2;
+	// ----- Calculate hard-iron offsets
+	Mag_x_offset = (mag_x_max + mag_x_min) / 2;                     // Get average magnetic bias in counts
+	Mag_y_offset = (mag_y_max + mag_y_min) / 2;
+	Mag_z_offset = (mag_z_max + mag_z_min) / 2;
 
-  chord_average = (chord_x + chord_y + chord_z) / 3;              // Calculate average chord length
+	// ----- Calculate soft-iron scale factors
+	chord_x = ((float)(mag_x_max - mag_x_min)) / 2;                 // Get average max chord length in counts
+	chord_y = ((float)(mag_y_max - mag_y_min)) / 2;
+	chord_z = ((float)(mag_z_max - mag_z_min)) / 2;
 
-  Mag_x_scale = chord_average / chord_x;                          // Calculate X scale factor
-  Mag_y_scale = chord_average / chord_y;                          // Calculate Y scale factor
-  Mag_z_scale = chord_average / chord_z;                          // Calculate Z scale factor
+	chord_average = (chord_x + chord_y + chord_z) / 3;              // Calculate average chord length
 
-  // ----- Record magnetometer offsets
-  /*
-     When active this feature sends the magnetometer data
-     to the Serial Monitor then halts the program.
-  */
-  if (Record_data == true)
-  {
-    // ----- Display data extremes
-    Serial.println("");
-    Serial.println("");
-    Serial.print("XYZ Max/Min: ");
-    Serial.print(mag_x_min); Serial.print("\t");
-    Serial.print(mag_x_max); Serial.print("\t");
-    Serial.print(mag_y_min); Serial.print("\t");
-    Serial.print(mag_y_max); Serial.print("\t");
-    Serial.print(mag_z_min); Serial.print("\t");
-    Serial.println(mag_z_max);
-    Serial.println("");
+	Mag_x_scale = chord_average / chord_x;                          // Calculate X scale factor
+	Mag_y_scale = chord_average / chord_y;                          // Calculate Y scale factor
+	Mag_z_scale = chord_average / chord_z;                          // Calculate Z scale factor
 
-    // ----- Display hard-iron offsets
-    Serial.print("Hard-iron: ");
-    Serial.print(Mag_x_offset); Serial.print("\t");
-    Serial.print(Mag_y_offset); Serial.print("\t");
-    Serial.println(Mag_z_offset);
-    Serial.println("");
+	// ----- Record magnetometer offsets
+	/*
+	 When active this feature sends the magnetometer data
+	 to the Serial Monitor then halts the program.
+	*/
+	if (Record_data == true) {
+		// ----- Display data extremes
+		Serial.println("");
+		Serial.println("");
+		Serial.print("XYZ Max/Min: ");
+		Serial.print(mag_x_min); Serial.print("\t");
+		Serial.print(mag_x_max); Serial.print("\t");
+		Serial.print(mag_y_min); Serial.print("\t");
+		Serial.print(mag_y_max); Serial.print("\t");
+		Serial.print(mag_z_min); Serial.print("\t");
+		Serial.println(mag_z_max);
+		Serial.println("");
 
-    // ----- Display soft-iron scale factors
-    Serial.print("Soft-iron: ");
-    Serial.print(Mag_x_scale); Serial.print("\t");
-    Serial.print(Mag_y_scale); Serial.print("\t");
-    Serial.println(Mag_z_scale);
-    Serial.println("");
+		// ----- Display hard-iron offsets
+		Serial.print("Hard-iron: ");
+		Serial.print(Mag_x_offset); Serial.print("\t");
+		Serial.print(Mag_y_offset); Serial.print("\t");
+		Serial.println(Mag_z_offset);
+		Serial.println("");
 
-    // ----- Display fuse ROM values
-    Serial.print("ASA: ");
-    Serial.print(ASAX); Serial.print("\t");
-    Serial.print(ASAY); Serial.print("\t");
-    Serial.println(ASAZ);
+		// ----- Display soft-iron scale factors
+		Serial.print("Soft-iron: ");
+		Serial.print(Mag_x_scale); Serial.print("\t");
+		Serial.print(Mag_y_scale); Serial.print("\t");
+		Serial.println(Mag_z_scale);
+		Serial.println("");
 
-    // ----- Halt program    
-    digitalWrite(LED, LOW);                              //Turn LED on ... indicates startup
-    while (true);                                       // Wheelspin ... program halt
-  }
+		// ----- Display fuse ROM values
+		Serial.print("ASA: ");
+		Serial.print(ASAX); Serial.print("\t");
+		Serial.print(ASAY); Serial.print("\t");
+		Serial.println(ASAZ);
+
+		// ----- Halt program    
+		digitalWrite(LED, LOW);                             //Turn LED on ... indicates startup
+		while (true);                                       // Wheelspin ... program halt
+	}else{
+		// Flag
+		String out_s = "CM";
+		// Hard-iron
+		out_s += (String)Mag_x_offset;
+		out_s += "a";
+		out_s += (String)Mag_y_offset;
+		out_s += "b";
+		out_s += (String)Mag_z_offset;
+		out_s += "c";
+		// Soft-iron
+		out_s += (String)Mag_x_scale;
+		out_s += "d";
+		out_s += (String)Mag_y_scale;
+		out_s += "e";
+		out_s += (String)Mag_z_scale;
+		out_s += "f";
+		// ASA
+		out_s += (String)ASAX;
+		out_s += "g";
+		out_s += (String)ASAY;
+		out_s += "h";
+		out_s += (String)ASAZ;
+		out_s += "i";
+		// Out
+		addTo_outString(out_s);
+	}
+	digitalWrite(LED, LOW);                             //Turn LED on ... indicates startup
 }
 
 // -------------------------------
@@ -613,14 +640,13 @@ void calibrate_gyro()
   Serial.println("Calibrating Gyro");
 
   // ----- LED Status (ON = calibration start)
-  pinMode(LED, OUTPUT);                                 //Set LED (pin 13) as output
   digitalWrite(LED, HIGH);                              //Turn LED on ... indicates startup
 
   // ----- Calibrate gyro
   for (int counter = 0; counter < 2000 ; counter ++)    //Run this code 2000 times
   {
     Loop_start = micros();
-    if (counter % 125 == 0)Serial.print(".");           //Print a dot on the LCD every 125 readings
+    if (counter % 125 == 0)Serial.println(".");           //Print a dot on the LCD every 125 readings
     read_mpu_6050_data();                               //Read the raw acc and gyro data from the MPU-6050
     Gyro_x_cal += Gyro_x;                               //Add the gyro x-axis offset to the gyro_x_cal variable
     Gyro_y_cal += Gyro_y;                               //Add the gyro y-axis offset to the gyro_y_cal variable
@@ -709,6 +735,8 @@ void send_ack() {
 	addTo_outString("ACK " + (String)packet_flag);
 	inString 	= "";
 	packet_flag = -1;
+	in_val_0	= -99;
+	in_val_1	= -99;
 }
 // --------------------------
 //  Send outString byte per byte 
@@ -742,7 +770,56 @@ void align_accel(){
 	Cal_Accel_pitch = Accel_pitch;
 	Cal_Accel_roll  = Accel_roll;
 }
-
+// --------------------------
+//  Slow move servo
+// --------------------------
+/*
+void slow_mv_servo() {
+	int soll = servoList[0][0];
+	int ist  = serv_slowmv_val_buffer;
+	if(soll == ist) {
+		dir_flag = -1;
+		serv_in_pos_ack();
+	}else{
+		Serial.println("init");
+		Serial.println("ist  " + (String)ist);
+		Serial.println("soll " + (String)soll);
+		if(dir_flag == -1) {
+			if(soll > ist) {
+				Serial.println("0");
+				int res_1 = serv_N_ms - soll + ist;
+				int res_2 = soll - ist;
+				if(res_1 < res_2) {
+					Serial.println("-");
+					dir_flag = 1;
+				}else{
+					Serial.println("+");
+					dir_flag = 0;
+				}				
+			}else{
+				Serial.println("1");
+				int res_1 = -serv_N_ms - soll + ist;
+				int res_2 = soll - ist;
+				if(abs(res_1) < abs(res_2)) {
+					Serial.println("+");
+					dir_flag = 1;
+				}else{
+					Serial.println("-");
+					dir_flag = 0;
+				}
+			}
+		}else{
+			Serial.println("");
+			Serial.println("ist  " + (String)ist);
+			Serial.println("soll " + (String)soll);
+			switch (dir_flag) {
+				case 0 : serv_slowmv_val_buffer -= 1; break;
+				case 1 : serv_slowmv_val_buffer += 1; break;
+			}
+		}
+	}
+}
+*/
 // --------------------------
 //  Main Loop - Get Serial - Adj Servo ...
 // --------------------------
@@ -799,7 +876,7 @@ switch (LOOP_counter) {
 							addTo_outString("LH" + (String)H_buffer);	//gimbal lock heading
 						}
 					}
-					break;				
+				break;				
 				case 65: 	// "A"	Servo Adjust on/off
 					if(stri == '\n') {
 						if(inString.toInt() == 1) {
@@ -809,42 +886,116 @@ switch (LOOP_counter) {
 						}
 						send_ack();	
 					}
-					break;
+				break;
 				case 66:	// "B"	Set H_buffer if not set in case 83
 					if(stri == '\n') {
 						H_buffer = Heading;						
 						send_ack();
 						addTo_outString("LH" + (String)H_buffer);	//gimbal lock heading
 					}
-					break;
+				break;
 				case 67: 	// "C" Level accelerometer & calibrate magnetometer
-					// CA for Auto
-					// CA2.55P1.45R
-					if(stri == 'A') {	// accelerometer
-						in_val_0 = 0;
-						inString = "";
-					}
-					if(in_val_0 == 0 && stri == 'P') {
-						Cal_Accel_pitch = inString.toFloat();
-						inString 		= "";
-					}
-					if(in_val_0 == 0 && stri == 'R') {
-						Cal_Accel_roll  = inString.toFloat();
-						inString 		= "";
-						in_val_0		= -1;
-					}
-					if(stri == 'M') {	// magnetometer
-						in_val_0 = 1;
-						inString = "";
-					}
-					
-					if(stri == '\n') {
-						send_ack();
-						if(in_val_0 == 0) { // accelerometer
-							align_acc = true;
+					if(in_val_0 == -99) {
+						switch (stri) {
+							case 'A': in_val_0 = 0; break;	// accelerometer
+							// CA for Auto
+							// CA2.55P1.45R
+							case 'M': in_val_0 = 1;	break;  // magnetometer
+							// CM new calibration
+							// CM40a-236b147c1.01d0.98e1.01f1.18g1.18h1.14i
 						}
+						inString = "";
+					}else{
+						if(stri == '\n') {													
+							switch (in_val_0) {
+								case 0: send_ack(); align_acc 		  = true; break;	// accelerometer
+								case 1: send_ack(); calibrate_magnetometer(); break;	// magnetometer
+								default: send_ack();
+							}
+							Serial.println("");
+							// ----- Display hard-iron offsets
+							Serial.print("Hard-iron: ");
+							Serial.print(Mag_x_offset); Serial.print("\t");
+							Serial.print(Mag_y_offset); Serial.print("\t");
+							Serial.println(Mag_z_offset);
+							Serial.println("");
+
+							// ----- Display soft-iron scale factors
+							Serial.print("Soft-iron: ");
+							Serial.print(Mag_x_scale); Serial.print("\t");
+							Serial.print(Mag_y_scale); Serial.print("\t");
+							Serial.println(Mag_z_scale);
+							Serial.println("");
+
+							// ----- Display fuse ROM values
+							Serial.print("ASA: ");
+							Serial.print(ASAX); Serial.print("\t");
+							Serial.print(ASAY); Serial.print("\t");
+							Serial.println(ASAZ);
+						}else{
+							switch(in_val_0) {
+								case 0:
+									switch (stri) {
+										case 'P': 
+											Cal_Accel_pitch = inString.toFloat();
+											inString 		= "";
+										break;
+										case 'R':
+											Cal_Accel_roll  = inString.toFloat();
+											inString 		= "";
+											in_val_0		= -1;
+										break;
+									}
+									break;
+								case 1:
+									switch (stri) {
+										// Hard-iron
+										case 'a':
+											Mag_x_offset  	= inString.toInt();
+											inString 		= "";
+										break;
+										case 'b':
+											Mag_y_offset  	= inString.toInt();
+											inString 		= "";
+										break;
+										case 'c':
+											Mag_z_offset  	= inString.toInt();
+											inString 		= "";
+										break;
+										// Soft-iron
+										case 'd':
+											Mag_x_scale  	= inString.toFloat();
+											inString 		= "";
+										break;
+										case 'e':
+											Mag_y_scale  	= inString.toFloat();
+											inString 		= "";
+										break;
+										case 'f':
+											Mag_z_scale  	= inString.toFloat();
+											inString 		= "";
+										break;
+										// ASA
+										case 'g':
+											ASAX  			= inString.toFloat();
+											inString 		= "";
+										break;
+										case 'h':
+											ASAY  			= inString.toFloat();
+											inString 		= "";
+										break;
+										case 'i':
+											ASAZ  			= inString.toFloat();
+											inString 		= "";
+											in_val_0		= -1;
+										break;
+									}
+								break;
+							}
+						}
+							
 					}
-					break;
+				break;
 				case 83:	// "S"  Servo Parameter	
 					if (stri == 'L') { // Set Gimbal Lock
 						lock_trigger = true;
@@ -873,40 +1024,39 @@ switch (LOOP_counter) {
 						}
 						send_ack();									
 					}
-					break;
+				break;
 				default:
-					if(stri == '\n') {	// ACK -1 .. fail
-						packet_flag = -1;						
+					if(stri == '\n') {	// ACK -1 .. fail	
 						send_ack();
 					}
-					break;
+				break;
 			}			
 		}	
-	if(!init_ok) LOOP_counter = 1;
-	break;
+		if(!init_ok) LOOP_counter = 1;
+		break;
 		
 	////////////////////// Servo slow move /////////////////////////
 
 	case 4:		
 		if(servoList[0][1] != 1) {			
-			temp_servo_val = round(servoList[0][0] / 10);
-			temp_slow_val  = round(serv_slowmv_val_buffer / 10);
-
-			if(temp_servo_val != temp_slow_val) {
+			if(servoList[0][0] != serv_slowmv_val_buffer) {
 				if((micros() - serv_slowmv_timer_buffer) > pow(servoList[0][1], 2) ) {
-					if(temp_servo_val > temp_slow_val) {					
-						serv_slowmv_val_buffer += 10;
+					
+					if(servoList[0][0] > serv_slowmv_val_buffer) {					
+						serv_slowmv_val_buffer += 1;
 					}else{				
-						serv_slowmv_val_buffer -= 10;						
+						serv_slowmv_val_buffer -= 1;						
 					}	
+					
+					//slow_mv_servo();
 					serv_slowmv_timer_buffer = micros();
 				}
 			}else{
 				serv_in_pos_ack();
 			}			
 		}
-	if(!align_acc) LOOP_counter = 0;
-	break;
+		if(!align_acc) LOOP_counter = 0;
+		break;
 	case 5:
 		if(round(Accel_pitch) != 0 || round(Accel_roll) != 0 )	{
 			align_accel();

@@ -46,7 +46,9 @@ class ArduCom:
                     if _di:
                         self.acc_roll_cal = _di['acc_roll']
                         self.acc_pitch_cal = _di['acc_pitch']
+                print("Send ACC leveling parameters..")
                 self.set_acc_cal_parm()
+                print("ACC leveling parameters sended")
             except FileNotFoundError:
                 self.get_acc_cal_parm()
         else:
@@ -89,7 +91,10 @@ class ArduCom:
                         # print('ACK-INIT-Recv :' + str(chr(int(ser_buffer[3:]))))
                         return True
                     ser_buffer = b''
-
+                elif '.' in ser_buffer:
+                    print(ser_buffer)
+                    ser_buffer = b''
+                    count = 0
                 elif count > 4:
                     print(ser_buffer)
                     return False
@@ -220,10 +225,14 @@ class ArduCom:
     # Ardu set automatic accelerometer level parameters end send it back
     def get_acc_cal_parm(self):
         flag = 'C'  # 'C' = 67
-        self.send_w_ack(flag, 'A')  # 'A' accelerometer
+        self.send_w_ack(flag, 'A')      # 'A' accelerometer
 
     def set_acc_cal_parm(self):
         flag = 'C'  # 'C' = 67
         _str = 'A' + str(self.acc_pitch_cal) + 'P' + str(self.acc_roll_cal) + 'R'
         self.send_w_ack(flag, _str)
+
+    def calibrate_mag(self):
+        flag = 'C'  # 'C' = 67
+        self.send_w_ack(flag, 'M')      # 'M' magnetometer
 

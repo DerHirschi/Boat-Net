@@ -24,8 +24,8 @@ class Main:
         self.web2data_timer = 500       # minimum wait if new plot can called
         self.scan_resolution = 32       # Resolution of scans
         self.scan_duration = 5          # Duration of scanned signals from LTE stick
-        self.init_speed = 100           # Servo Speed for initialization scan
-        self.cell_speed = 150           # Servo Speed for cell scan
+        self.init_speed = 30            # Servo Speed for initialization scan
+        self.cell_speed = 80            # Servo Speed for cell scan
         # Flags
         self.call_web2data = False
         self.c5 = time.time()
@@ -35,7 +35,7 @@ class Main:
             print("Arduino init")
             self.ardu = self.init_ardu()
             if self.ardu.run_trigger:
-                self.ardu.set_servo(_val=512, _speed=200, wait_servo_confirm=True)
+                self.ardu.set_servo(_val=512, _speed=30, wait_servo_confirm=False)
                 self.ardu.toggle_servos(True)
                 self.run_trigger = True
         except Exception as e:
@@ -321,7 +321,7 @@ if __name__ == '__main__':
         except KeyboardInterrupt:
             print('wird geschlossen')
             try:
-                main.ardu.set_servo(1, 512, 300, False, True)
+                main.ardu.set_servo(1, 512, 70, False, True)
             except ConnectionError:
                 print("Das wars E")
                 main.close()
