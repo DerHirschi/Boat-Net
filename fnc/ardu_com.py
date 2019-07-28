@@ -31,26 +31,33 @@ class ArduCom:
         # Flags
         self.servo_on = False       # Servo toggle ( on/off Servo Gimbal on Ardu)
         self.servo_val = 512        # Temp Servo value
+        self.p_in = False           # Trigger for getting mag parameters from ardu
+        self.is_busy = 0            # Trigger get from Ardu, can receive packets or not
         # Configs
         self.conf_file = 'fnc/configs.pkl'
+        # Accelerometer
         self.acc_roll_cal = .0      # Calibrating parameter for accelerometer roll
         self.acc_pitch_cal = .0     # Calibrating parameter for accelerometer pitch
+        # Magnetometer
+        self.Mag_x_offset = 0       # Hard iron
+        self.Mag_y_offset = 0       # Hard iron
+        self.Mag_z_offset = 0       # Hard iron
+        self.Mag_x_scale = .0       # Soft iron
+        self.Mag_y_scale = .0       # Soft iron
+        self.Mag_z_scale = .0       # Soft iron
+        self.ASAX = .0              # ASA
+        self.ASAY = .0              # ASA
+        self.ASAZ = .0              # ASA
         # Handshake
         if self.get_handshake():
             print("Handshake successful..")
             # Receiver Thread
             threading.Thread(target=self.read_serial).start()
             try:
-                with open(self.conf_file, 'rb') as f:
-                    _di = Pickle.load(f)
-                    if _di:
-                        self.acc_roll_cal = _di['acc_roll']
-                        self.acc_pitch_cal = _di['acc_pitch']
-                print("Send ACC leveling parameters..")
-                self.set_acc_cal_parm()
-                print("ACC leveling parameters sended")
-            except FileNotFoundError:
-                self.get_acc_cal_parm()
+                self.load_configs()
+            except KeyError or FileNotFoundError:
+                pass
+            print("Ardu Init complete..")
         else:
             print("Handshake failed !")
             self.run_trigger = False
@@ -59,10 +66,44 @@ class ArduCom:
     def close(self):
         self.ser.close()
 
+    def load_configs(self):
+        try:
+            with open(self.conf_file, 'rb') as f:
+                _di = Pickle.load(f)
+                if _di:
+                    self.acc_roll_cal = _di['acc_roll']
+                    self.acc_pitch_cal = _di['acc_pitch']
+                    self.Mag_x_offset = _di['Mag_x_offset']
+                    self.Mag_y_offset = _di['Mag_y_offset']
+                    self.Mag_z_offset = _di['Mag_z_offset']
+                    self.Mag_x_scale = _di['Mag_x_scale']
+                    self.Mag_y_scale = _di['Mag_y_scale']
+                    self.Mag_z_scale = _di['Mag_z_scale']
+                    self.ASAX = _di['ASAX']
+                    self.ASAY = _di['ASAY']
+                    self.ASAZ = _di['ASAZ']
+
+            print("Send ACC leveling parameters..")
+            self.set_acc_cal_parm()
+            print("ACC leveling parameters sended")
+        except FileNotFoundError or KeyError as e:
+            self.get_acc_cal_parm()
+            self.get_mag_parm()
+            print(e)
+
     def save_configs(self):
         _di = {
             'acc_roll': self.acc_roll_cal,
-            'acc_pitch': self.acc_pitch_cal
+            'acc_pitch': self.acc_pitch_cal,
+            'Mag_x_offset': self.Mag_x_offset,
+            'Mag_y_offset': self.Mag_y_offset,
+            'Mag_z_offset': self.Mag_z_offset,
+            'Mag_x_scale': self.Mag_x_scale,
+            'Mag_y_scale': self.Mag_y_scale,
+            'Mag_z_scale': self.Mag_z_scale,
+            'ASAX': self.ASAX,
+            'ASAY': self.ASAY,
+            'ASAZ': self.ASAZ,
         }
         with open(self.conf_file, 'wb') as _f:
             Pickle.dump(_di, _f)
@@ -128,7 +169,7 @@ class ArduCom:
         # print("Parser In:" + str(buffer_in))
         # ACK
         if 'ACK' in buffer_in:
-            while self.ack != -1:
+            while self.ack != -1 and self.run_trigger:
                 pass
             self.ack = chr(int(buffer_in[3:]))
             # print('ACK-Recv :' + str(self.ack))
@@ -143,12 +184,31 @@ class ArduCom:
             self.lock_hdg = float(buffer_in[2:])
         # Accelerometer calibrating parameters
         elif 'CA' in buffer_in:
+            # TODO CRC for this shit . . .
+            # CA-0.71P-3.01R
             self.acc_pitch_cal = float(buffer_in[2:(buffer_in.find("P"))])
             self.acc_roll_cal = float(buffer_in[(buffer_in.find("P") + 1):(buffer_in.find("R"))])
             self.save_configs()
+        elif 'CM' in buffer_in:
+            # TODO CRC for this shit . . .
+            # CM40a-236b147c1.01d0.98e1.01f1.18g1.18h1.14i
+            self.Mag_x_offset = int(buffer_in[2:(buffer_in.find("a"))])
+            self.Mag_y_offset = int(buffer_in[(buffer_in.find("a") + 1):(buffer_in.find("b"))])
+            self.Mag_z_offset = int(buffer_in[(buffer_in.find("b") + 1):(buffer_in.find("c"))])
+            self.Mag_x_scale = float(buffer_in[(buffer_in.find("c") + 1):(buffer_in.find("d"))])
+            self.Mag_y_scale = float(buffer_in[(buffer_in.find("d") + 1):(buffer_in.find("e"))])
+            self.Mag_z_scale = float(buffer_in[(buffer_in.find("e") + 1):(buffer_in.find("f"))])
+            self.ASAX = float(buffer_in[(buffer_in.find("f") + 1):(buffer_in.find("g"))])
+            self.ASAY = float(buffer_in[(buffer_in.find("g") + 1):(buffer_in.find("h"))])
+            self.ASAZ = float(buffer_in[(buffer_in.find("h") + 1):(buffer_in.find("i"))])
+            self.save_configs()
+            self.p_in = True
         # ACK if Servo is on Position
         elif 'SAC' in buffer_in:
             self.sac = True
+        # RCV Trigger if ardu can receive packets or is busy
+        elif 'BSY' in buffer_in:
+            self.is_busy = int(buffer_in[3:4])
         # Restart
         elif 'BSTRT' in buffer_in:
             print("Get Arduino Restart Trigger !!!")
@@ -157,42 +217,44 @@ class ArduCom:
             print("Ardu: {}".format(buffer_in))
 
     def send_w_ack(self, _flag, _out_string):
-        while self.ack != -1:
-            if not self.run_trigger:
-                break
-        for _e in range(3):
-            try:
-                self.ser.write(bytes((_flag + _out_string + '\n'), 'utf-8'))
-            except serial.SerialException:
-                print("Error write to Arduion ...")
-                self.run_trigger = False
-                raise
-            _e_count = 0
-            while self.ack != _flag:
-                if not self.run_trigger or _e_count >= 300:
-                    print("ERROR: NO ACK in 3 sec")
-                    break
-                time.sleep(0.01)
-                _e_count += 1
-            if self.ack == _flag:
-                self.ack = -1
-                return True
+        while (self.ack != -1 or self.is_busy) and self.run_trigger:
+            # if (self.ack == -1 and not self.is_busy) or not self.run_trigger:
+                # break
+            time.sleep(0.001)
+        if self.run_trigger:
+            for _e in range(3):
+                try:
+                    self.ser.write(bytes((_flag + _out_string + '\n'), 'utf-8'))
+                except serial.SerialException:
+                    print("Error write to Arduion ...")
+                    self.run_trigger = False
+                    raise ConnectionError
+                _e_count = 0
+                while self.ack != _flag:
+                    if not self.run_trigger or _e_count >= 300:
+                        print("ERROR: NO ACK in 3 sec")
+                        break
+                    time.sleep(0.01)
+                    _e_count += 1
+                if self.ack == _flag:
+                    self.ack = -1
+                    return True
 
-        self.ack = -1
-        print("ERROR: NO ACK with 3 trys")
-        self.run_trigger = False
-        raise ConnectionError
+            self.ack = -1
+            print("ERROR: NO ACK with 3 try´s")
+            self.run_trigger = False
+            raise ConnectionError
 
-    def set_servo(self, servo=1, _val=512, _speed=1, new_gimbal_lock=False, wait_servo_confirm=False):
-        flag = 'S'      # 'S' = 83
-        out = ''
+    def set_servo(self, _servo=1, _val=512, _speed=1, _new_gimbal_lock=False, wait_servo_confirm=False):
+        _flag = 'S'      # 'S' = 83
+        _out = ''
         if _speed != 1:
             self.sac = False
-        if new_gimbal_lock:
-            out += 'L'
-        out += '{},{}:{}'.format((_val + 2000), _speed, servo)     # val+2000 to get - values
+        if _new_gimbal_lock:
+            _out += 'L'
+        _out += '{},{}:{}'.format((_val + 2000), _speed, _servo)     # val+2000 to get - values
         try:
-            self.send_w_ack(flag, out)
+            self.send_w_ack(_flag, _out)
             self.servo_val = _val
         except ConnectionError:
             raise
@@ -232,7 +294,39 @@ class ArduCom:
         _str = 'A' + str(self.acc_pitch_cal) + 'P' + str(self.acc_roll_cal) + 'R'
         self.send_w_ack(flag, _str)
 
+    def get_mag_parm(self):
+        flag = 'C'  # 'C' = 67
+        self.send_w_ack(flag, 'P')      # 'P' magnetometer parameter
+        self.p_in = False
+
     def calibrate_mag(self):
         flag = 'C'  # 'C' = 67
         self.send_w_ack(flag, 'M')      # 'M' magnetometer
+        self.print_mag_parm()
+
+    def print_mag_parm(self):
+        self.get_mag_parm()
+        while not self.p_in:
+            time.sleep(0.001)
+        print("------------------------------------------------")
+        print("Hard-Iron:")
+        print("Mag_x_offset: {}, "
+              "Mag_y_offset: {}, "
+              "Mag_z_offset: {}".format(self.Mag_x_offset,
+                                        self.Mag_y_offset,
+                                        self.Mag_z_offset))
+        print("Soft-Iron:")
+        print("Mag_x_scale: {}, "
+              "Mag_y_scale: {}, "
+              "Mag_z_scale: {}".format(self.Mag_x_scale,
+                                       self.Mag_y_scale,
+                                       self.Mag_z_scale))
+        print("ASA:")
+        print("ASAX: {}, "
+              "ASAY: {}, "
+              "ASAZ: {}".format(self.ASAX,
+                                self.ASAY,
+                                self.ASAZ))
+        print("------------------------------------------------")
+
 

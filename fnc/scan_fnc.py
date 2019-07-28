@@ -127,7 +127,7 @@ class ScanSignals:
 
     def set_servo_hdg(self, _val, _speed=2):
         try:
-            self.arduino.set_servo(servo=1, _val=_val, _speed=_speed, wait_servo_confirm=True)
+            self.arduino.set_servo(_servo=1, _val=_val, _speed=_speed, wait_servo_confirm=True)
         except Exception as e:
             raise e
 

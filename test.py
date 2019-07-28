@@ -28,7 +28,7 @@ if main.run_trigger:
         print(main.ardu.acc_roll_cal)
         print(main.ardu.acc_pitch_cal)
         print("Wird beendet ... ")
-        main.ardu.set_servo(_val=512, _speed=150, new_gimbal_lock=True)
+        main.ardu.set_servo(_val=512, _speed=150, _new_gimbal_lock=True)
         time.sleep(2)
         main.run_trigger = False
 

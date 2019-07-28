@@ -543,31 +543,8 @@ void calibrate_magnetometer(){
 		digitalWrite(LED, LOW);                             //Turn LED on ... indicates startup
 		while (true);                                       // Wheelspin ... program halt
 	}else{
-		// Flag
-		String out_s = "CM";
-		// Hard-iron
-		out_s += (String)Mag_x_offset;
-		out_s += "a";
-		out_s += (String)Mag_y_offset;
-		out_s += "b";
-		out_s += (String)Mag_z_offset;
-		out_s += "c";
-		// Soft-iron
-		out_s += (String)Mag_x_scale;
-		out_s += "d";
-		out_s += (String)Mag_y_scale;
-		out_s += "e";
-		out_s += (String)Mag_z_scale;
-		out_s += "f";
-		// ASA
-		out_s += (String)ASAX;
-		out_s += "g";
-		out_s += (String)ASAY;
-		out_s += "h";
-		out_s += (String)ASAZ;
-		out_s += "i";
-		// Out
-		addTo_outString(out_s);
+		send_busy(0);
+		send_mag_param();
 	}
 	digitalWrite(LED, LOW);                             //Turn LED on ... indicates startup
 }
@@ -690,29 +667,15 @@ void read_mpu_6050_data()
   Gyro_y = Wire.read() << 8 | Wire.read();              // Combine MSB,LSB Gyro_x variable
   Gyro_z = Wire.read() << 8 | Wire.read();              // Combine MSB,LSB Gyro_x variable
 }
-
-
 // ----- Allow for under/overflow
-/*
-float heading_overflow(float h_in) {
-  float res = float(int(h_in * 100) % 36000) / 100;
-	return res;
-}
-*/
 float heading_overflow(float h_in) {	
-	if (h_in >= 360) { 
-		h_in -= 360;    	
-	}
-	if (h_in < 0) {		
-		h_in +=  360;	
-	}		
-  return h_in;
+	if (h_in >= 360) h_in -= 360;    	
+	if (h_in < 0)    h_in += 360;		
+	return h_in;
 }
-
 // -------------------------------
 //  Adjust Servos
 // -------------------------------
-// TODO Slowering servo speed down
 void adjust_servos() {	
 	if(ADJUST) {
 		serv_max_angle = map(analogRead(Poti), 50, 1000, 200, 280 );
@@ -732,7 +695,7 @@ void adjust_servos() {
 //  Send ACK end of received msg
 // --------------------------
 void send_ack() {
-	addTo_outString("ACK " + (String)packet_flag);
+	addTo_outString("ACK" + (String)packet_flag);
 	inString 	= "";
 	packet_flag = -1;
 	in_val_0	= -99;
@@ -743,7 +706,6 @@ void send_ack() {
 // --------------------------
 void send_Serial() {
 	if(outString.length() != 0) {
-		
 		Serial.print(outString.charAt(0));
 		outString.remove(0, 1);
 	}
@@ -752,14 +714,20 @@ void send_Serial() {
 // --------------------------
 //  add Strin to outString 
 // --------------------------
-void addTo_outString(String in){
-	outString += in;
+void addTo_outString(String in_p) {
+	outString += in_p;
 	outString += '\n';
+}
+// --------------------------
+//  Send busy Flag if Ardu cant receive packets ( mag cal ) 
+// --------------------------
+void send_busy(int in_p) {
+	addTo_outString("BSY" + (String)in_p);
 }
 // --------------------------
 //  add Strin to outString 
 // --------------------------
-void serv_in_pos_ack(){
+void serv_in_pos_ack() {
 	addTo_outString("SAC");
 	servoList[0][1] = 1;
 }
@@ -769,6 +737,36 @@ void serv_in_pos_ack(){
 void align_accel(){
 	Cal_Accel_pitch = Accel_pitch;
 	Cal_Accel_roll  = Accel_roll;
+}
+// --------------------------
+//  Send magnetometer calculation parameter
+// --------------------------
+void send_mag_param() {
+	// Flag
+	String out_s = "CM";
+	// Hard-iron
+	out_s += (String)Mag_x_offset;
+	out_s += "a";
+	out_s += (String)Mag_y_offset;
+	out_s += "b";
+	out_s += (String)Mag_z_offset;
+	out_s += "c";
+	// Soft-iron
+	out_s += (String)Mag_x_scale;
+	out_s += "d";
+	out_s += (String)Mag_y_scale;
+	out_s += "e";
+	out_s += (String)Mag_z_scale;
+	out_s += "f";
+	// ASA
+	out_s += (String)ASAX;
+	out_s += "g";
+	out_s += (String)ASAY;
+	out_s += "h";
+	out_s += (String)ASAZ;
+	out_s += "i";
+	// Out
+	addTo_outString(out_s);
 }
 // --------------------------
 //  Slow move servo
@@ -903,35 +901,19 @@ switch (LOOP_counter) {
 							case 'M': in_val_0 = 1;	break;  // magnetometer
 							// CM new calibration
 							// CM40a-236b147c1.01d0.98e1.01f1.18g1.18h1.14i
+							case 'P': in_val_0 = 2; break; 	// magnetometer parameter
+							// CP send magnetometer Parameter
 						}
 						inString = "";
 					}else{
 						if(stri == '\n') {													
 							switch (in_val_0) {
-								case 0: send_ack(); align_acc 		  = true; break;	// accelerometer
-								case 1: send_ack(); calibrate_magnetometer(); break;	// magnetometer
-								default: send_ack();
+								case 0:  send_ack(); align_acc = true;  		break;	// accelerometer
+								case 1:  send_busy(1); 
+										 send_ack(); calibrate_magnetometer();  break;	// magnetometer
+								case 2:  send_ack(); send_mag_param();		   	break;	// send magnetometer parameter without calibration
+								default: send_ack();							break;
 							}
-							Serial.println("");
-							// ----- Display hard-iron offsets
-							Serial.print("Hard-iron: ");
-							Serial.print(Mag_x_offset); Serial.print("\t");
-							Serial.print(Mag_y_offset); Serial.print("\t");
-							Serial.println(Mag_z_offset);
-							Serial.println("");
-
-							// ----- Display soft-iron scale factors
-							Serial.print("Soft-iron: ");
-							Serial.print(Mag_x_scale); Serial.print("\t");
-							Serial.print(Mag_y_scale); Serial.print("\t");
-							Serial.println(Mag_z_scale);
-							Serial.println("");
-
-							// ----- Display fuse ROM values
-							Serial.print("ASA: ");
-							Serial.print(ASAX); Serial.print("\t");
-							Serial.print(ASAY); Serial.print("\t");
-							Serial.println(ASAZ);
 						}else{
 							switch(in_val_0) {
 								case 0:

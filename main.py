@@ -38,7 +38,8 @@ class Main:
                 self.ardu.set_servo(_val=512, _speed=30, wait_servo_confirm=False)
                 self.ardu.toggle_servos(True)
                 self.run_trigger = True
-        except Exception as e:
+
+        except ConnectionError as e:
             self.close("Arduino failed - " + str(e))
 
         if self.run_trigger:
@@ -91,9 +92,10 @@ class Main:
         self.close()
 
     def init_ardu(self):
+        _ret = None
         try:
             return ArduCom()
-        except Exception as e:
+        except ConnectionError as e:
             raise e
 
     def init_lte(self, modem):
@@ -315,6 +317,12 @@ if __name__ == '__main__':
         _inp = input("Do you want calibrate the accelerometer leveling parameters ? y/n> ")
         if 'Y' in _inp or 'y' in _inp:
             main.ardu.get_acc_cal_parm()
+        _inp = input("Do you want show the magnetometer Parameters ? y/n> ")
+        if 'Y' in _inp or 'y' in _inp:
+            main.ardu.print_mag_parm()
+        _inp = input("Do you want calibrate the magnetometer ? y/n> ")
+        if 'Y' in _inp or 'y' in _inp:
+            main.ardu.calibrate_mag()
 
         try:
             main.mode_anchor()
