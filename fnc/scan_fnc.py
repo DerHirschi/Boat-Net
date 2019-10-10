@@ -33,8 +33,8 @@ class ScanSignals:
 
     def get_scanres_filename(self, _net_mode):
         return {
-            2: 'web_gui/data/3g.pkl',
-            3: 'web_gui/data/4g.pkl'
+            2: 'web/data/3g.pkl',
+            3: 'web/data/4g.pkl'
         }[_net_mode]
 
     def get_threshold(self, _net_mode):
@@ -351,7 +351,7 @@ class ScanSignals:
             Pickle.dump(_di, _f)
 
     def save_plmn(self):
-        with open('web_gui/data/plm.pkl', 'wb') as f:
+        with open('web/data/plm.pkl', 'wb') as f:
             Pickle.dump(self.plmn_list, f)
 
     def save_configs(self):
@@ -360,6 +360,6 @@ class ScanSignals:
             'val': self.val_range,
             'plmn': self.plmn_list
         }
-        with open('web_gui/data/configs.pkl', 'wb') as f:
+        with open('web/data/configs.pkl', 'wb') as f:
             Pickle.dump(_di, f)
 

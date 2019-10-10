@@ -40,7 +40,7 @@ class Data2Web:
                 self.width[_i] = 6 / self.N
 
     def load_configs(self):
-        with open('web_gui/data/configs.pkl', 'rb') as f:
+        with open('web/data/configs.pkl', 'rb') as f:
             _di = Pickle.load(f)
             if _di:
                 self.N = _di['N']
@@ -50,8 +50,8 @@ class Data2Web:
 
     def get_scanres_filename(self, _net_mode):
         return {
-            2: 'web_gui/data/3g.pkl',
-            3: 'web_gui/data/4g.pkl'
+            2: 'web/data/3g.pkl',
+            3: 'web/data/4g.pkl'
         }[_net_mode]
 
     def load_scanres(self, _net_mode):
