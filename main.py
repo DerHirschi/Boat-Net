@@ -154,6 +154,7 @@ class Main:
         _sig = self.scan.get_scanres_dict(self.lte.net_mode)
         _sig = _sig[self.ardu.servo_val][0]
         if _sig < self.scan.get_threshold(self.lte.net_mode):
+            self.call_web2data = True
             log("chk_sig_in_threshold -- Trigger ", 9)
             log("chk_sig_in_threshold old cell hdg list  " + str(self.cell_hdg_list), 9)
             self.go_strongest_cell(_speed=self.cell_speed)
@@ -212,6 +213,8 @@ class Main:
                                       self.scan_duration)
         self.scan.get_cells(self.lte.net_mode)
         self.chk_sig_in_threshold()
+        # TODO Temporary
+        self.call_web2data = True
 
     @staticmethod
     def chk_loop_time(_time, _threshold):
