@@ -79,6 +79,7 @@ class Main:
                 self.scan.scanres3G, \
                     self.scan.scanres4G, \
                     self.scan.null_hdg = temp_scan                  # Write back temp values to Scan Class
+
                 # self.web = Data2Web(self.scan)                      # Reinitialize Web Output
             if not self.lte.run_trigger:                            # Check LTE Stick Error state
                 _t = False
